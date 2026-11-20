@@ -1,0 +1,43 @@
+
+name: Build ASGARI HOME APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get project files
+        uses: actions/checkout@v4
+
+      - name: Extract project ZIP
+        run: |
+          mkdir -p appsrc
+          unzip -o asgari_home_starter.zip -d appsrc
+          cp -R appsrc/. .
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Prepare Android project
+        run: flutter create --platforms=android --project-name asgari_home .
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: asgari-home-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
