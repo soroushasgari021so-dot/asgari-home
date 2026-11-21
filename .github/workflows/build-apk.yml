@@ -1,0 +1,90 @@
+
+name: Build ASGARI HOME APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get project files
+        uses: actions/checkout@v5
+
+      - name: Check ZIP file
+        run: |
+          echo "Checking project ZIP..."
+          ls -lah
+          test -f asgari_home_starter.zip
+
+      - name: Extract project ZIP
+        run: |
+          mkdir -p appsrc
+          unzip -o asgari_home_starter.zip -d appsrc
+
+      - name: Detect project structure
+        id: detect
+        run: |
+          echo "===== PROJECT FILES ====="
+          find appsrc -maxdepth 4 -type f | sort | head -150
+
+          if find appsrc -name gradlew -type f | grep -q .; then
+            echo "type=gradle" >> "$GITHUB_OUTPUT"
+            echo "Gradle project detected."
+          elif find appsrc -name pubspec.yaml -type f | grep -q .; then
+            echo "type=flutter" >> "$GITHUB_OUTPUT"
+            echo "Flutter project detected."
+          elif find appsrc -name package.json -type f | grep -q .; then
+            echo "type=node" >> "$GITHUB_OUTPUT"
+            echo "Node.js project detected."
+          else
+            echo "type=unknown" >> "$GITHUB_OUTPUT"
+            echo "No supported build project detected."
+          fi
+
+      - name: Set up Java
+        if: steps.detect.outputs.type == 'gradle'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build Android APK
+        if: steps.detect.outputs.type == 'gradle'
+        run: |
+          GRADLEW=$(find appsrc -name gradlew -type f | head -1)
+          chmod +x "$GRADLEW"
+          cd "$(dirname "$GRADLEW")"
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Stop if build system is not identified
+        if: steps.detect.outputs.type != 'gradle'
+        run: |
+          echo "Android Gradle project not detected."
+          echo "Detected type: ${{ steps.detect.outputs.type }}"
+          echo "Project files are listed in the previous step."
+          exit 1
+
+      - name: Collect APK files
+        if: success()
+        run: |
+          mkdir -p output
+          find appsrc -type f -name "*.apk" -exec cp {} output/ \;
+          test -n "$(find output -name '*.apk' -print -quit)"
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASGARI-HOME-APK
+          path: output/*.apk
+          if-no-files-found: error
+          retention-days: 14
