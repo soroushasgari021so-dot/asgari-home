@@ -1,3 +1,4 @@
+
 name: Build ASGARI HOME APK
 
 on:
@@ -11,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,21 +24,15 @@ jobs:
           cache: true
 
       - name: Generate Android platform files
-        run: |
-          set +e
-          flutter create --verbose --no-pub --platforms=android --project-name asgari_home . > flutter-create.log 2>&1
-          RESULT=$?
-          echo "========== FLUTTER ERROR LOG =========="
-          tail -n 100 flutter-create.log
-          echo "========== END OF LOG =========="
-          exit $RESULT
+        run: flutter create --no-pub --platforms=android --project-name asgari_home .
 
       - name: Add Android internet permission
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           grep -q 'android.permission.INTERNET' "$MANIFEST" || \
             sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
-            - name: Install dependencies
+
+      - name: Install dependencies
         run: flutter pub get
 
       - name: Build release APK
