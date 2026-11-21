@@ -1,191 +1,21 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-const telegramUsername = 'amlak_asgari';
-const officePhone = String.fromEnvironment(
-  'OFFICE_PHONE',
-  defaultValue: '09363882379',
-);
+class AdminDashboard extends StatefulWidget {
+  final String email;
+  final VoidCallback onSignOut;
 
-bool get isSupabaseConfigured =>
-    supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (isSupabaseConfigured) {
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  }
-  runApp(const AsgariApp());
-}
-
-class AsgariApp extends StatelessWidget {
-  const AsgariApp({super.key});
+  const AdminDashboard({
+    super.key,
+    required this.email,
+    required this.onSignOut,
+  });
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'املاک عسگری',
-        locale: const Locale('fa'),
-        supportedLocales: const [Locale('fa'), Locale('en')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: ThemeData(
-          useMaterial3: true,
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: const Color(0xff101010),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xffc6a04b),
-            brightness: Brightness.dark,
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xff171717),
-            foregroundColor: Color(0xffe0bd69),
-          ),
-          cardTheme: CardThemeData(
-            color: const Color(0xff1b1b1b),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-        home: const HomePage(),
-      );
+  State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  int tab = 0;
-
-  @override
-  Widget build(BuildContext context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: Scaffold(
-          appBar: AppBar(
-            title: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('املاک عسگری',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('نهاوند | ASGARI HOME',
-                    style: TextStyle(fontSize: 11, color: Colors.white54)),
-              ],
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'ارتباط با دفتر',
-                onPressed: () => _contact(context),
-                icon: const Icon(Icons.support_agent),
-              ),
-            ],
-          ),
-          body: IndexedStack(
-            index: tab,
-            children: const [PublicListings(), AdminGate()],
-          ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: tab,
-            onDestinationSelected: (value) => setState(() => tab = value),
-            destinations: const [
-              NavigationDestination(
-                  icon: Icon(Icons.home_outlined), label: 'آگهی‌ها'),
-              NavigationDestination(
-                  icon: Icon(Icons.lock_outline), label: 'مدیریت مدیران'),
-            ],
-          ),
-        ),
-      );
-
-  Future<void> _contact(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: SafeArea(
-          child: Wrap(
-            children: [
-              const ListTile(
-                title: Text('ارتباط با املاک عسگری',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.telegram),
-                title: const Text('گفت‌وگو در تلگرام'),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await launchUrl(
-                    Uri.parse('https://t.me/$telegramUsername'),
-                    mode: LaunchMode.externalApplication,
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.phone),
-                title: const Text('تماس تلفنی'),
-                subtitle: Text(officePhone),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await launchUrl(Uri(scheme: 'tel', path: officePhone));
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class SetupNotice extends StatelessWidget {
-  const SetupNotice({super.key});
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.cloud_off,
-                      color: Color(0xffc6a04b), size: 42),
-                  SizedBox(height: 12),
-                  Text('اتصال پایگاه داده هنوز تنظیم نشده',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                  SizedBox(height: 8),
-                  Text(
-                    'برای فعال‌شدن آگهی‌های آنلاین و ورود مدیران، اطلاعات اتصال Supabase باید در تنظیمات مخزن GitHub ثبت و برنامه دوباره ساخته شود.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-}
-
-class PublicListings extends StatefulWidget {
-  const PublicListings({super.key});
-  @override
-  State<PublicListings> createState() => _PublicListingsState();
-}
-
-class _PublicListingsState extends State<PublicListings> {
-  String category = 'همه';
-  String search = '';
+class _AdminDashboardState extends State<AdminDashboard> {
   late Future<List<Map<String, dynamic>>> listingsFuture;
+  bool busy = false;
 
   @override
   void initState() {
@@ -194,49 +24,198 @@ class _PublicListingsState extends State<PublicListings> {
   }
 
   Future<List<Map<String, dynamic>>> _loadListings() async {
-    if (!isSupabaseConfigured) return [];
     final rows = await Supabase.instance.client
         .from('public_listings')
         .select()
-        .eq('is_published', true)
         .order('created_at', ascending: false);
+
     return List<Map<String, dynamic>>.from(rows);
   }
 
   void _refresh() {
-    setState(() => listingsFuture = _loadListings());
+    setState(() {
+      listingsFuture = _loadListings();
+    });
+  }
+
+  void _message(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _openEditor({
+    Map<String, dynamic>? item,
+  }) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => PropertyEditorDialog(item: item),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() => busy = true);
+
+    try {
+      final client = Supabase.instance.client;
+
+      if (item == null) {
+        await client.from('public_listings').insert(result);
+        _message('ملک با موفقیت ثبت شد.');
+      } else {
+        await client
+            .from('public_listings')
+            .update(result)
+            .eq('id', item['id']);
+        _message('اطلاعات ملک ویرایش شد.');
+      }
+
+      _refresh();
+    } catch (e) {
+      _message('ثبت اطلاعات ناموفق بود: $e');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _delete(Map<String, dynamic> item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف فایل ملک'),
+        content: Text(
+          'آیا از حذف «${item['title']}» اطمینان داری؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف شود'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await Supabase.instance.client
+          .from('public_listings')
+          .delete()
+          .eq('id', item['id']);
+
+      _message('ملک حذف شد.');
+      _refresh();
+    } catch (e) {
+      _message('حذف ملک ناموفق بود: $e');
+    }
+  }
+
+  Future<void> _changePublication(
+    Map<String, dynamic> item,
+    bool value,
+  ) async {
+    try {
+      await Supabase.instance.client
+          .from('public_listings')
+          .update({'is_published': value})
+          .eq('id', item['id']);
+
+      _message(
+        value ? 'آگهی منتشر شد.' : 'آگهی از نمایش عمومی خارج شد.',
+      );
+      _refresh();
+    } catch (e) {
+      _message('تغییر وضعیت انتشار ناموفق بود: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!isSupabaseConfigured) return const SetupNotice();
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(14),
-          child: TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'جست‌وجو در آگهی‌ها',
-              border: OutlineInputBorder(),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.verified_user,
+                    color: Color(0xffd6b45e),
+                    size: 32,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'پنل مدیریت املاک',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
+                        ),
+                        Text(
+                          widget.email,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'خروج از حساب',
+                    onPressed: () async {
+                      await Supabase.instance.client.auth.signOut();
+                      widget.onSignOut();
+                    },
+                    icon: const Icon(Icons.logout),
+                  ),
+                ],
+              ),
             ),
-            onChanged: (value) => setState(() => search = value.trim()),
           ),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
-            children: ['همه', 'فروش', 'رهن و اجاره']
-                .map((value) => Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: ChoiceChip(
-                        label: Text(value),
-                        selected: category == value,
-                        onSelected: (_) => setState(() => category = value),
-                      ),
-                    ))
-                .toList(),
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: busy ? null : () => _openEditor(),
+                  icon: const Icon(Icons.add_home),
+                  label: const Text('ثبت ملک جدید'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'تازه‌سازی',
+              ),
+            ],
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.all(12),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'فهرست فایل‌های ملکی',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
           ),
         ),
         Expanded(
@@ -244,250 +223,400 @@ class _PublicListingsState extends State<PublicListings> {
             future: listingsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
               }
+
               if (snapshot.hasError) {
                 return Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('دریافت آگهی‌ها ممکن نشد.'),
-                      TextButton.icon(
+                      const Text('دریافت فایل‌ها ناموفق بود.'),
+                      TextButton(
                         onPressed: _refresh,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('تلاش دوباره'),
+                        child: const Text('تلاش دوباره'),
                       ),
                     ],
                   ),
                 );
               }
-              final rows = (snapshot.data ?? []).where((item) {
-                final matchesCategory =
-                    category == 'همه' || item['category'] == category;
-                final text =
-                    '${item['title'] ?? ''} ${item['neighborhood'] ?? ''}';
-                return matchesCategory && text.contains(search);
-              }).toList();
+
+              final rows = snapshot.data ?? [];
+
               if (rows.isEmpty) {
                 return const Center(
-                    child: Text('در حال حاضر آگهی منتشرشده‌ای وجود ندارد.'));
+                  child: Text('هنوز ملکی ثبت نشده است.'),
+                );
               }
+
               return RefreshIndicator(
                 onRefresh: () async => _refresh(),
                 child: ListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: rows.length,
-                  itemBuilder: (context, index) =>
-                      ListingCard(item: rows[index]),
+                  itemBuilder: (context, index) {
+                    final item = rows[index];
+                    final published = item['is_published'] == true;
+
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${item['title'] ?? 'بدون عنوان'}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${item['category'] ?? ''} | '
+                              '${item['area'] ?? '—'} متر | '
+                              '${item['neighborhood'] ?? 'بدون محله'}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${item['display_price'] ?? 'قیمت ثبت نشده'}',
+                              style: const TextStyle(
+                                color: Color(0xffd6b45e),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('انتشار آگهی عمومی'),
+                              subtitle: Text(
+                                published ? 'منتشرشده' : 'منتشرنشده',
+                              ),
+                              value: published,
+                              onChanged: (value) =>
+                                  _changePublication(item, value),
+                            ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () =>
+                                        _openEditor(item: item),
+                                    icon: const Icon(Icons.edit),
+                                    label: const Text('ویرایش'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: () => _delete(item),
+                                  color: Colors.redAccent,
+                                  icon: const Icon(Icons.delete_outline),
+                                  tooltip: 'حذف ملک',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
           ),
         ),
+        if (busy) const LinearProgressIndicator(),
       ],
     );
   }
 }
 
-class ListingCard extends StatelessWidget {
-  final Map<String, dynamic> item;
-  const ListingCard({super.key, required this.item});
+class PropertyEditorDialog extends StatefulWidget {
+  final Map<String, dynamic>? item;
+
+  const PropertyEditorDialog({
+    super.key,
+    this.item,
+  });
 
   @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(15),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('${item['title'] ?? 'ملک'}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                  ),
-                  Text('${item['category'] ?? ''}',
-                      style: const TextStyle(color: Color(0xffd6b45e))),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('${item['area'] ?? '—'} متر | ${item['neighborhood'] ?? 'نهاوند'}',
-                  style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 8),
-              Text('${item['display_price'] ?? 'تماس بگیرید'}',
-                  style: const TextStyle(
-                      color: Color(0xffd6b45e), fontWeight: FontWeight.bold)),
-              if (item['description'] != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text('${item['description']}'),
-                ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.tonalIcon(
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://t.me/$telegramUsername'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                  icon: const Icon(Icons.send),
-                  label: const Text('استعلام از املاک عسگری'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+  State<PropertyEditorDialog> createState() =>
+      _PropertyEditorDialogState();
 }
 
-class AdminGate extends StatefulWidget {
-  const AdminGate({super.key});
+class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
+  final formKey = GlobalKey<FormState>();
+
+  late final TextEditingController title;
+  late final TextEditingController area;
+  late final TextEditingController neighborhood;
+  late final TextEditingController address;
+  late final TextEditingController bedrooms;
+  late final TextEditingController floor;
+  late final TextEditingController salePrice;
+  late final TextEditingController deposit;
+  late final TextEditingController rent;
+  late final TextEditingController displayPrice;
+  late final TextEditingController description;
+
+  String category = 'فروش';
+  String propertyType = 'آپارتمان';
+  bool published = false;
+
   @override
-  State<AdminGate> createState() => _AdminGateState();
-}
+  void initState() {
+    super.initState();
 
-class _AdminGateState extends State<AdminGate> {
-  final email = TextEditingController();
-  final password = TextEditingController();
-  bool busy = false;
-  String? error;
+    final item = widget.item;
+
+    title = TextEditingController(text: '${item?['title'] ?? ''}');
+    area = TextEditingController(text: '${item?['area'] ?? ''}');
+    neighborhood = TextEditingController(
+      text: '${item?['neighborhood'] ?? ''}',
+    );
+    address = TextEditingController(
+      text: '${item?['full_address'] ?? ''}',
+    );
+    bedrooms = TextEditingController(
+      text: '${item?['bedrooms'] ?? ''}',
+    );
+    floor = TextEditingController(
+      text: '${item?['floor_number'] ?? ''}',
+    );
+    salePrice = TextEditingController(
+      text: '${item?['sale_price'] ?? ''}',
+    );
+    deposit = TextEditingController(
+      text: '${item?['deposit_amount'] ?? ''}',
+    );
+    rent = TextEditingController(
+      text: '${item?['monthly_rent'] ?? ''}',
+    );
+    displayPrice = TextEditingController(
+      text: '${item?['display_price'] ?? ''}',
+    );
+    description = TextEditingController(
+      text: '${item?['description'] ?? ''}',
+    );
+
+    category = item?['category'] ?? 'فروش';
+    propertyType = item?['property_type'] ?? 'آپارتمان';
+    published = item?['is_published'] == true;
+  }
 
   @override
   void dispose() {
-    email.dispose();
-    password.dispose();
+    title.dispose();
+    area.dispose();
+    neighborhood.dispose();
+    address.dispose();
+    bedrooms.dispose();
+    floor.dispose();
+    salePrice.dispose();
+    deposit.dispose();
+    rent.dispose();
+    displayPrice.dispose();
+    description.dispose();
     super.dispose();
   }
 
-  Future<void> signIn() async {
-    if (!isSupabaseConfigured) return;
-    setState(() {
-      busy = true;
-      error = null;
+  num? _number(String value) {
+    if (value.trim().isEmpty) return null;
+    return num.tryParse(value.trim());
+  }
+
+  int? _integer(String value) {
+    if (value.trim().isEmpty) return null;
+    return int.tryParse(value.trim());
+  }
+
+  void _save() {
+    if (!formKey.currentState!.validate()) return;
+
+    Navigator.pop(context, <String, dynamic>{
+      'title': title.text.trim(),
+      'category': category,
+      'property_type': propertyType,
+      'area': _number(area.text),
+      'neighborhood': neighborhood.text.trim(),
+      'full_address': address.text.trim(),
+      'bedrooms': _integer(bedrooms.text),
+      'floor_number': _integer(floor.text),
+      'sale_price': _number(salePrice.text),
+      'deposit_amount': _number(deposit.text),
+      'monthly_rent': _number(rent.text),
+      'display_price': displayPrice.text.trim(),
+      'description': description.text.trim(),
+      'is_published': published,
     });
-    try {
-      final client = Supabase.instance.client;
-      final result = await client.auth.signInWithPassword(
-        email: email.text.trim(),
-        password: password.text,
-      );
-      final user = result.user;
-      if (user == null) throw Exception('ورود ناموفق بود.');
-      final membership = await client
-          .from('admin_users')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      if (membership == null) {
-        await client.auth.signOut();
-        throw Exception('این حساب دسترسی مدیریت ندارد.');
-      }
-    } catch (exception) {
-      error = exception.toString().replaceFirst('Exception: ', '');
-    }
-    if (mounted) setState(() => busy = false);
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    TextInputType keyboard = TextInputType.text,
+    bool required = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboard,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+        validator: required
+            ? (value) => value == null || value.trim().isEmpty
+                ? 'این قسمت الزامی است.'
+                : null
+            : null,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!isSupabaseConfigured) return const SetupNotice();
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      return AdminDashboard(
-        email: user.email ?? '',
-        onSignOut: () { if (mounted) setState(() {}); },
-      );
-    }
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                const Icon(Icons.admin_panel_settings,
-                    color: Color(0xffd6b45e), size: 42),
-                const SizedBox(height: 10),
-                const Text('ورود مدیران',
-                    style:
-                        TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'ایمیل مدیر'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'رمز عبور'),
-                  onSubmitted: (_) => signIn(),
-                ),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(error!,
-                        style: const TextStyle(color: Colors.redAccent)),
-                  ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: busy ? null : signIn,
-                    child: Text(busy ? 'در حال بررسی...' : 'ورود امن'),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: Text(
+          widget.item == null ? 'ثبت ملک جدید' : 'ویرایش ملک',
         ),
-      ),
-    );
-  }
-}
-
-class AdminDashboard extends StatelessWidget {
-  final String email;
-  final VoidCallback onSignOut;
-  const AdminDashboard({super.key, required this.email, required this.onSignOut});
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.verified_user,
-                      color: Color(0xffd6b45e), size: 40),
-                  const Text('پنل مدیریت خصوصی',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  Text(email, style: const TextStyle(color: Colors.white54)),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'ورود مدیر تأیید شد. امکانات ثبت و مدیریت ملک در مراحل بعدی توسعه اضافه می‌شوند.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton.tonal(
-                    onPressed: () async {
-                      await Supabase.instance.client.auth.signOut();
-                      onSignOut();
+                  _field('عنوان ملک', title, required: true),
+                  DropdownButtonFormField<String>(
+                    value: category,
+                    decoration: const InputDecoration(
+                      labelText: 'نوع معامله',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'فروش',
+                        child: Text('فروش'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'رهن و اجاره',
+                        child: Text('رهن و اجاره'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => category = value);
+                      }
                     },
-                    child: const Text('خروج از حساب'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: propertyType,
+                    decoration: const InputDecoration(
+                      labelText: 'نوع ملک',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'آپارتمان',
+                        child: Text('آپارتمان'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'خانه',
+                        child: Text('خانه'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'زمین',
+                        child: Text('زمین'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'مغازه',
+                        child: Text('مغازه'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'باغ',
+                        child: Text('باغ'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'سایر',
+                        child: Text('سایر'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => propertyType = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _field(
+                    'متراژ (متر)',
+                    area,
+                    keyboard: TextInputType.number,
+                  ),
+                  _field('محله', neighborhood),
+                  _field('آدرس کامل', address),
+                  _field(
+                    'تعداد اتاق خواب',
+                    bedrooms,
+                    keyboard: TextInputType.number,
+                  ),
+                  _field(
+                    'طبقه',
+                    floor,
+                    keyboard: TextInputType.number,
+                  ),
+                  const Divider(),
+                  _field(
+                    'قیمت فروش (تومان)',
+                    salePrice,
+                    keyboard: TextInputType.number,
+                  ),
+                  _field(
+                    'مبلغ رهن (تومان)',
+                    deposit,
+                    keyboard: TextInputType.number,
+                  ),
+                  _field(
+                    'اجاره ماهانه (تومان)',
+                    rent,
+                    keyboard: TextInputType.number,
+                  ),
+                  _field('متن قیمت نمایشی', displayPrice),
+                  _field('توضیحات ملک', description),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('انتشار آگهی'),
+                    value: published,
+                    onChanged: (value) {
+                      setState(() => published = value);
+                    },
                   ),
                 ],
               ),
             ),
           ),
         ),
-      );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: _save,
+            child: const Text('ذخیره ملک'),
+          ),
+        ],
+      ),
+    );
+  }
 }
