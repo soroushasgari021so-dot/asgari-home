@@ -22,7 +22,7 @@ jobs:
           cache: true
 
       - name: Generate Android platform files
-        run: flutter create --platforms=android --project-name asgari_home .
+        run: flutter create --verbose --platforms=android --project-name asgari_home .
 
       - name: Install dependencies
         run: flutter pub get
