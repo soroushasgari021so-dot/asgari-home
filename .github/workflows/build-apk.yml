@@ -23,10 +23,13 @@ jobs:
 
       - name: Generate Android platform files
         run: |
-  flutter create --verbose --no-pub --platforms=android --project-name asgari_home . 2>&1 || {
-    echo "FLUTTER CREATE FAILED"
-    exit 1
-  }
+          set +e
+          flutter create --verbose --no-pub --platforms=android --project-name asgari_home . > flutter-create.log 2>&1
+          RESULT=$?
+          echo "========== FLUTTER ERROR LOG =========="
+          tail -n 100 flutter-create.log
+          echo "========== END OF LOG =========="
+          exit $RESULT
 
       - name: Install dependencies
         run: flutter pub get
