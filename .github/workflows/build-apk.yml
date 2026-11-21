@@ -30,25 +30,24 @@ jobs:
           mkdir -p appsrc
           unzip -o asgari_home_starter.zip -d appsrc
 
-      - name: Detect project structure
-        id: detect
+      - name: Inspect project files
         run: |
-          echo "===== PROJECT FILES ====="
-          find appsrc -maxdepth 4 -type f | sort | head -150
+          echo "===== ROOT CONTENTS ====="
+          ls -lah appsrc
 
-          if find appsrc -name gradlew -type f | grep -q .; then
-            echo "type=gradle" >> "$GITHUB_OUTPUT"
-            echo "Gradle project detected."
-          elif find appsrc -name pubspec.yaml -type f | grep -q .; then
-            echo "type=flutter" >> "$GITHUB_OUTPUT"
-            echo "Flutter project detected."
-          elif find appsrc -name package.json -type f | grep -q .; then
-            echo "type=node" >> "$GITHUB_OUTPUT"
-            echo "Node.js project detected."
-          else
-            echo "type=unknown" >> "$GITHUB_OUTPUT"
-            echo "No supported build project detected."
-          fi
+          echo "===== PROJECT FILES ====="
+          find appsrc -maxdepth 5 -type f | sort | head -200
+
+          echo "===== BUILD CONFIGURATIONS ====="
+          find appsrc -type f \( \
+            -name "pubspec.yaml" -o \
+            -name "package.json" -o \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" -o \
+            -name "build.gradle" -o \
+            -name "build.gradle.kts" -o \
+            -name "gradlew" \
+          \) -print
 
       - name: Set up Java
         if: steps.detect.outputs.type == 'gradle'
