@@ -22,7 +22,11 @@ jobs:
           cache: true
 
       - name: Generate Android platform files
-        run: flutter create --verbose --platforms=android --project-name asgari_home .
+        run: |
+  flutter create --verbose --no-pub --platforms=android --project-name asgari_home . 2>&1 || {
+    echo "FLUTTER CREATE FAILED"
+    exit 1
+  }
 
       - name: Install dependencies
         run: flutter pub get
