@@ -1,5 +1,8 @@
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -41,12 +44,8 @@ class AsgariApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Roboto',
         scaffoldBackgroundColor: backgroundColor,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: gold,
-          brightness: Brightness.light,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: gold),
         appBarTheme: const AppBarTheme(
           backgroundColor: black,
           foregroundColor: gold,
@@ -64,9 +63,7 @@ class AsgariApp extends StatelessWidget {
           ),
         ),
       ),
-      home: configured
-          ? const HomePage()
-          : const SetupNotice(),
+      home: configured ? const HomePage() : const SetupNotice(),
     );
   }
 }
@@ -258,13 +255,11 @@ class _PublicListingsState extends State<PublicListings> {
                     (item['neighborhood'] ?? '').toString();
                 final category = (item['category'] ?? '').toString();
 
-                final matchesSearch =
-                    searchText.isEmpty ||
+                final matchesSearch = searchText.isEmpty ||
                     title.contains(searchText) ||
                     neighborhood.contains(searchText);
 
-                final matchesCategory =
-                    selectedCategory == 'همه' ||
+                final matchesCategory = selectedCategory == 'همه' ||
                     category == selectedCategory;
 
                 return matchesSearch && matchesCategory;
@@ -311,10 +306,7 @@ class _PublicListingsState extends State<PublicListings> {
             selectedCategory = category;
           });
         },
-        child: Text(
-          category,
-          style: const TextStyle(fontSize: 12),
-        ),
+        child: Text(category, style: const TextStyle(fontSize: 12)),
       ),
     );
   }
@@ -333,8 +325,11 @@ class ListingCard extends StatelessWidget {
     final area = item['area']?.toString() ?? '';
     final neighborhood = item['neighborhood']?.toString() ?? '';
     final description = item['description']?.toString() ?? '';
-
     final price = item['display_price']?.toString() ?? '';
+
+    final images = item['image_urls'] is List
+        ? List<String>.from(item['image_urls'])
+        : <String>[];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -349,6 +344,50 @@ class ListingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (images.isNotEmpty) ...[
+              SizedBox(
+                height: 190,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: images.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      return GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => Dialog(
+                              child: InteractiveViewer(
+                                child: Image.network(
+                                  images[index],
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.broken_image),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        child: Image.network(
+                          images[index],
+                          width: 260,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 260,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.broken_image),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 const Icon(Icons.home, color: gold, size: 28),
@@ -368,8 +407,7 @@ class ListingCard extends StatelessWidget {
             Text('نوع معامله: $category'),
             if (type.isNotEmpty) Text('نوع ملک: $type'),
             if (area.isNotEmpty) Text('متراژ: $area متر'),
-            if (neighborhood.isNotEmpty)
-              Text('محله: $neighborhood'),
+            if (neighborhood.isNotEmpty) Text('محله: $neighborhood'),
             if (price.isNotEmpty)
               Text(
                 'قیمت: $price',
@@ -439,10 +477,7 @@ class _AdminGateState extends State<AdminGate> {
 
     try {
       final response = await Supabase.instance.client.auth
-          .signInWithPassword(
-        email: email,
-        password: password,
-      );
+          .signInWithPassword(email: email, password: password);
 
       final user = response.user;
 
@@ -465,9 +500,7 @@ class _AdminGateState extends State<AdminGate> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const AdminDashboard(),
-        ),
+        MaterialPageRoute(builder: (_) => const AdminDashboard()),
       );
     } catch (e) {
       if (mounted) {
@@ -549,9 +582,7 @@ class _AdminGateState extends State<AdminGate> {
                       ),
                       onPressed: loading ? null : login,
                       child: loading
-                          ? const CircularProgressIndicator(
-                              color: gold,
-                            )
+                          ? const CircularProgressIndicator(color: gold)
                           : const Text('ورود به پنل مدیریت'),
                     ),
                   ),
@@ -598,9 +629,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     await future;
   }
 
-  Future<void> openEditor([
-    Map<String, dynamic>? item,
-  ]) async {
+  Future<void> openEditor([Map<String, dynamic>? item]) async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -617,9 +646,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('حذف فایل'),
-        content: const Text(
-          'آیا از حذف این فایل ملکی اطمینان دارید؟',
-        ),
+        content: const Text('آیا از حذف این فایل ملکی اطمینان دارید؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -653,10 +680,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  Future<void> changePublication(
-    String id,
-    bool published,
-  ) async {
+  Future<void> changePublication(String id, bool published) async {
     try {
       await Supabase.instance.client
           .from('public_listings')
@@ -671,7 +695,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   void showError(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -750,6 +773,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final item = items[index];
                 final id = item['id'].toString();
                 final published = item['is_published'] == true;
+                final images = item['image_urls'] is List
+                    ? List<String>.from(item['image_urls'])
+                    : <String>[];
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -758,6 +784,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (images.isNotEmpty)
+                          SizedBox(
+                            height: 100,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: images.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 6),
+                              itemBuilder: (context, imageIndex) {
+                                return ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    images[imageIndex],
+                                    width: 110,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.broken_image),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        const SizedBox(height: 8),
                         Text(
                           item['title']?.toString() ?? '',
                           style: const TextStyle(
@@ -783,9 +832,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               color: published ? Colors.green : Colors.grey,
                             ),
                             const SizedBox(width: 5),
-                            Text(
-                              published ? 'منتشر شده' : 'پیش‌نویس',
-                            ),
+                            Text(published ? 'منتشر شده' : 'پیش‌نویس'),
                             const Spacer(),
                             IconButton(
                               tooltip: 'انتشار',
@@ -799,18 +846,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             IconButton(
                               tooltip: 'ویرایش',
                               onPressed: () => openEditor(item),
-                              icon: const Icon(
-                                Icons.edit,
-                                color: Colors.blue,
-                              ),
+                              icon: const Icon(Icons.edit, color: Colors.blue),
                             ),
                             IconButton(
                               tooltip: 'حذف',
                               onPressed: () => deleteListing(id),
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
-                              ),
+                              icon: const Icon(Icons.delete, color: Colors.red),
                             ),
                           ],
                         ),
@@ -861,9 +902,9 @@ class PropertyEditorDialog extends StatefulWidget {
       _PropertyEditorDialogState();
 }
 
-class _PropertyEditorDialogState
-    extends State<PropertyEditorDialog> {
+class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
   final formKey = GlobalKey<FormState>();
+  final picker = ImagePicker();
 
   late final TextEditingController titleController;
   late final TextEditingController areaController;
@@ -881,6 +922,10 @@ class _PropertyEditorDialogState
   String propertyType = 'آپارتمان';
   bool published = false;
   bool saving = false;
+  bool pickingImages = false;
+
+  List<String> existingImages = [];
+  List<XFile> newImages = [];
 
   final propertyTypes = [
     'آپارتمان',
@@ -931,6 +976,10 @@ class _PropertyEditorDialogState
       text: item['description']?.toString() ?? '',
     );
 
+    if (item['image_urls'] is List) {
+      existingImages = List<String>.from(item['image_urls']);
+    }
+
     final savedCategory = item['category']?.toString();
     if (savedCategory == 'فروش' || savedCategory == 'رهن و اجاره') {
       category = savedCategory!;
@@ -960,6 +1009,89 @@ class _PropertyEditorDialogState
     super.dispose();
   }
 
+  Future<void> pickImages() async {
+    if (pickingImages || saving) return;
+
+    setState(() {
+      pickingImages = true;
+    });
+
+    try {
+      final selected = await picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1600,
+      );
+
+      if (!mounted) return;
+
+      if (selected.isNotEmpty) {
+        setState(() {
+          newImages.addAll(selected);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('انتخاب تصاویر ناموفق بود: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          pickingImages = false;
+        });
+      }
+    }
+  }
+
+  String contentTypeFor(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'heic':
+        return 'image/heic';
+      case 'heif':
+        return 'image/heif';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  Future<List<String>> uploadNewImages() async {
+    final client = Supabase.instance.client;
+    final uploadedUrls = <String>[];
+
+    for (final image in newImages) {
+      final extension = image.name.contains('.')
+          ? image.name.split('.').last.toLowerCase()
+          : 'jpg';
+
+      final fileName =
+          '${DateTime.now().microsecondsSinceEpoch}_${uploadedUrls.length}.$extension';
+
+      final path = '${client.auth.currentUser!.id}/$fileName';
+
+      await client.storage.from('property-images').uploadBinary(
+            path,
+            await image.readAsBytes(),
+            fileOptions: FileOptions(
+              contentType: contentTypeFor(extension),
+              upsert: false,
+            ),
+          );
+
+      uploadedUrls.add(
+        client.storage.from('property-images').getPublicUrl(path),
+      );
+    }
+
+    return uploadedUrls;
+  }
+
   Future<void> saveListing() async {
     if (!formKey.currentState!.validate()) return;
 
@@ -967,25 +1099,29 @@ class _PropertyEditorDialogState
       saving = true;
     });
 
-    final data = <String, dynamic>{
-      'title': titleController.text.trim(),
-      'category': category,
-      'property_type': propertyType,
-      'area': parseNumber(areaController.text),
-      'neighborhood': neighborhoodController.text.trim(),
-      'full_address': addressController.text.trim(),
-      'bedrooms': parseInteger(bedroomsController.text),
-      'floor_number': parseInteger(floorController.text),
-      'sale_price': parseNumber(salePriceController.text),
-      'deposit_amount': parseNumber(depositController.text),
-      'monthly_rent': parseNumber(rentController.text),
-      'display_price': displayPriceController.text.trim(),
-      'description': descriptionController.text.trim(),
-      'is_published': published,
-    };
-
     try {
       final client = Supabase.instance.client;
+
+      final uploadedUrls = await uploadNewImages();
+      final allImages = [...existingImages, ...uploadedUrls];
+
+      final data = <String, dynamic>{
+        'title': titleController.text.trim(),
+        'category': category,
+        'property_type': propertyType,
+        'area': parseNumber(areaController.text),
+        'neighborhood': neighborhoodController.text.trim(),
+        'full_address': addressController.text.trim(),
+        'bedrooms': parseInteger(bedroomsController.text),
+        'floor_number': parseInteger(floorController.text),
+        'sale_price': parseNumber(salePriceController.text),
+        'deposit_amount': parseNumber(depositController.text),
+        'monthly_rent': parseNumber(rentController.text),
+        'display_price': displayPriceController.text.trim(),
+        'description': descriptionController.text.trim(),
+        'is_published': published,
+        'image_urls': allImages,
+      };
 
       if (widget.item == null) {
         await client.from('public_listings').insert(data);
@@ -1001,7 +1137,7 @@ class _PropertyEditorDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا در ذخیره فایل: $e')),
+          SnackBar(content: Text('خطا در ذخیره فایل یا تصاویر: $e')),
         );
         setState(() {
           saving = false;
@@ -1037,6 +1173,130 @@ class _PropertyEditorDialogState
     );
   }
 
+  Widget imageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            'تصاویر ملک',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: pickingImages || saving ? null : pickImages,
+            icon: pickingImages
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_photo_alternate),
+            label: Text(
+              pickingImages ? 'در حال انتخاب...' : 'انتخاب تصاویر از گالری',
+            ),
+          ),
+        ),
+        if (existingImages.isNotEmpty || newImages.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 105,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                ...existingImages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final url = entry.value;
+
+                  return imagePreview(
+                    Image.network(
+                      url,
+                      width: 105,
+                      height: 105,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image),
+                    ),
+                    () {
+                      setState(() {
+                        existingImages.removeAt(index);
+                      });
+                    },
+                  );
+                }),
+                ...newImages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final file = entry.value;
+
+                  return imagePreview(
+                    Image.file(
+                      File(file.path),
+                      width: 105,
+                      height: 105,
+                      fit: BoxFit.cover,
+                    ),
+                    () {
+                      setState(() {
+                        newImages.removeAt(index);
+                      });
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'تعداد تصاویر: ${existingImages.length + newImages.length}',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  Widget imagePreview(Widget image, VoidCallback onRemove) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 105,
+              height: 105,
+              child: image,
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: saving ? null : onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -1053,16 +1313,10 @@ class _PropertyEditorDialogState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  textField(
-                    'عنوان فایل',
-                    titleController,
-                    required: true,
-                  ),
+                  textField('عنوان فایل', titleController, required: true),
                   DropdownButtonFormField<String>(
                     value: category,
-                    decoration: const InputDecoration(
-                      labelText: 'نوع معامله',
-                    ),
+                    decoration: const InputDecoration(labelText: 'نوع معامله'),
                     items: const [
                       DropdownMenuItem(
                         value: 'فروش',
@@ -1084,9 +1338,7 @@ class _PropertyEditorDialogState
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: propertyType,
-                    decoration: const InputDecoration(
-                      labelText: 'نوع ملک',
-                    ),
+                    decoration: const InputDecoration(labelText: 'نوع ملک'),
                     items: propertyTypes.map((type) {
                       return DropdownMenuItem(
                         value: type,
@@ -1134,25 +1386,25 @@ class _PropertyEditorDialogState
                     rentController,
                     keyboardType: TextInputType.number,
                   ),
-                  textField(
-                    'متن قیمت نمایشی',
-                    displayPriceController,
-                  ),
+                  textField('متن قیمت نمایشی', displayPriceController),
                   textField(
                     'توضیحات ملک',
                     descriptionController,
                     maxLines: 4,
                   ),
+                  imageSection(),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('انتشار آگهی برای عموم'),
                     value: published,
                     activeThumbColor: gold,
-                    onChanged: (value) {
-                      setState(() {
-                        published = value;
-                      });
-                    },
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            setState(() {
+                              published = value;
+                            });
+                          },
                   ),
                 ],
               ),
