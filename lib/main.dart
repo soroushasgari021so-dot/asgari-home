@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -720,7 +719,6 @@ class ListingDetailsPage extends StatelessWidget {
     );
   }
 }
-
 // -------------------- ADMIN LOGIN --------------------
 
 class AdminGate extends StatefulWidget {
@@ -1007,6 +1005,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
         appBar: AppBar(
           title: const Text('مدیریت املاک عسگری'),
           actions: [
+            // دکمه جدید یادآوری پیگیری
+            IconButton(
+              tooltip: 'یادآوری پیگیری',
+              icon: const Icon(Icons.notifications_active),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CustomerFollowUpPage(),
+                  ),
+                );
+              },
+            ),
             IconButton(
               tooltip: 'مدیریت مشتریان',
               icon: const Icon(Icons.people),
@@ -1166,7 +1177,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 }
-
 // -------------------- HELPERS --------------------
 
 String normalizeDigits(String value) {
@@ -1749,7 +1759,6 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
     );
   }
 }
-
 // -------------------- CUSTOMER MANAGEMENT --------------------
 
 class CustomerManagementPage extends StatefulWidget {
@@ -2045,7 +2054,6 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     );
   }
 }
-
 // -------------------- CUSTOMER EDITOR --------------------
 
 class CustomerEditorDialog extends StatefulWidget {
@@ -2355,6 +2363,515 @@ class _CustomerEditorDialogState extends State<CustomerEditorDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+// -------------------- CUSTOMER FOLLOW UP --------------------
+
+class CustomerFollowUpPage extends StatefulWidget {
+  const CustomerFollowUpPage({super.key});
+
+  @override
+  State<CustomerFollowUpPage> createState() =>
+      _CustomerFollowUpPageState();
+}
+
+class _CustomerFollowUpPageState extends State<CustomerFollowUpPage> {
+  late Future<List<Map<String, dynamic>>> customersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    customersFuture = loadFollowUps();
+  }
+
+  Future<List<Map<String, dynamic>>> loadFollowUps() async {
+    final response = await Supabase.instance.client
+        .from('customers')
+        .select()
+        .not('follow_up_date', 'is', null)
+        .order('follow_up_date', ascending: true);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<void> refreshFollowUps() async {
+    final future = loadFollowUps();
+
+    setState(() {
+      customersFuture = future;
+    });
+
+    await future;
+  }
+
+  DateTime? readDate(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString();
+    if (text.isEmpty || text == 'null') return null;
+
+    return DateTime.tryParse(text);
+  }
+
+  DateTime dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  Future<void> callCustomer(String phone) async {
+    final normalizedPhone = normalizeDigits(phone.trim());
+
+    if (normalizedPhone.isEmpty) {
+      showMessage('شماره تماس مشتری ثبت نشده است.');
+      return;
+    }
+
+    try {
+      final uri = Uri(
+        scheme: 'tel',
+        path: normalizedPhone,
+      );
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        showMessage('امکان برقراری تماس وجود ندارد.');
+      }
+    } catch (e) {
+      showMessage('خطا در باز کردن شماره تماس: $e');
+    }
+  }
+
+  void showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> editCustomer(
+    Map<String, dynamic> customer,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CustomerEditorDialog(
+        customer: customer,
+      ),
+    );
+
+    if (result == true && mounted) {
+      await refreshFollowUps();
+    }
+  }
+
+  Widget sectionTitle(
+    String title,
+    int count,
+    Color color,
+    IconData icon,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              count.toString(),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget customerCard(
+    Map<String, dynamic> customer,
+    Color color,
+    String label,
+  ) {
+    final name = customer['full_name']?.toString() ?? 'بدون نام';
+    final phone = customer['phone']?.toString() ?? '';
+    final demand = customer['demand']?.toString() ?? '';
+    final status = customer['status']?.toString() ?? 'جدید';
+    final followUp =
+        customer['follow_up_date']?.toString() ?? '';
+
+    return Card(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: color.withOpacity(0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('شماره تماس: $phone'),
+            if (demand.isNotEmpty)
+              Text('نوع درخواست: $demand'),
+            Text('وضعیت مشتری: $status'),
+            Text('تاریخ پیگیری: $followUp'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => callCustomer(phone),
+                    icon: const Icon(
+                      Icons.phone,
+                      color: Colors.green,
+                    ),
+                    label: const Text('تماس'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => editCustomer(customer),
+                    icon: const Icon(
+                      Icons.edit,
+                      color: Colors.blue,
+                    ),
+                    label: const Text('ویرایش'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget emptySection(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Colors.grey),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('یادآوری پیگیری مشتریان'),
+          actions: [
+            IconButton(
+              tooltip: 'به‌روزرسانی',
+              onPressed: refreshFollowUps,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: FutureBuilder<List<Map<String, dynamic>>>(
+          future: customersFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: gold),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 45,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'دریافت اطلاعات پیگیری با مشکل مواجه شد.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: refreshFollowUps,
+                        child: const Text('تلاش مجدد'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final customers = snapshot.data ?? [];
+
+            final today = dateOnly(DateTime.now());
+
+            final overdue = <Map<String, dynamic>>[];
+            final todayList = <Map<String, dynamic>>[];
+            final upcoming = <Map<String, dynamic>>[];
+
+            for (final customer in customers) {
+              final followUpDate =
+                  readDate(customer['follow_up_date']);
+
+              if (followUpDate == null) continue;
+
+              final date = dateOnly(followUpDate);
+
+              if (date.isBefore(today)) {
+                overdue.add(customer);
+              } else if (date.isAtSameMomentAs(today)) {
+                todayList.add(customer);
+              } else {
+                upcoming.add(customer);
+              }
+            }
+
+            if (customers.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: refreshFollowUps,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 180),
+                    Icon(
+                      Icons.notifications_none,
+                      size: 65,
+                      color: Colors.grey,
+                    ),
+                    SizedBox(height: 15),
+                    Center(
+                      child: Text(
+                        'هنوز هیچ تاریخ پیگیری برای مشتریان ثبت نشده است.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: refreshFollowUps,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: black,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active,
+                          color: gold,
+                          size: 35,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'برنامه پیگیری مشتریان',
+                          style: TextStyle(
+                            color: gold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: summaryItem(
+                                'عقب‌افتاده',
+                                overdue.length,
+                                Colors.redAccent,
+                              ),
+                            ),
+                            Expanded(
+                              child: summaryItem(
+                                'امروز',
+                                todayList.length,
+                                Colors.orangeAccent,
+                              ),
+                            ),
+                            Expanded(
+                              child: summaryItem(
+                                'آینده',
+                                upcoming.length,
+                                Colors.greenAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  sectionTitle(
+                    'پیگیری‌های عقب‌افتاده',
+                    overdue.length,
+                    Colors.red,
+                    Icons.warning_amber,
+                  ),
+                  if (overdue.isEmpty)
+                    emptySection('پیگیری عقب‌افتاده‌ای وجود ندارد.')
+                  else
+                    ...overdue.map(
+                      (customer) => customerCard(
+                        customer,
+                        Colors.red,
+                        'عقب‌افتاده',
+                      ),
+                    ),
+
+                  sectionTitle(
+                    'پیگیری‌های امروز',
+                    todayList.length,
+                    Colors.orange,
+                    Icons.today,
+                  ),
+                  if (todayList.isEmpty)
+                    emptySection('برای امروز پیگیری ثبت نشده است.')
+                  else
+                    ...todayList.map(
+                      (customer) => customerCard(
+                        customer,
+                        Colors.orange,
+                        'امروز',
+                      ),
+                    ),
+
+                  sectionTitle(
+                    'پیگیری‌های آینده',
+                    upcoming.length,
+                    Colors.green,
+                    Icons.event_available,
+                  ),
+                  if (upcoming.isEmpty)
+                    emptySection('پیگیری آینده‌ای ثبت نشده است.')
+                  else
+                    ...upcoming.map(
+                      (customer) => customerCard(
+                        customer,
+                        Colors.green,
+                        'آینده',
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget summaryItem(
+    String title,
+    int count,
+    Color color,
+  ) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: TextStyle(
+            color: color,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 }
