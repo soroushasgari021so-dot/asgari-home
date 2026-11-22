@@ -4,9 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+const String officePhone = '09363882379';
 
 const Color gold = Color(0xFFD4AF37);
 const Color black = Color(0xFF151515);
@@ -89,6 +92,8 @@ class SetupNotice extends StatelessWidget {
   }
 }
 
+// -------------------- HOME --------------------
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -109,9 +114,7 @@ class HomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminGate(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AdminGate()),
                 );
               },
             ),
@@ -132,6 +135,8 @@ class HomePage extends StatelessWidget {
   }
 }
 
+// -------------------- PUBLIC LISTINGS --------------------
+
 class PublicListings extends StatefulWidget {
   const PublicListings({super.key});
 
@@ -141,6 +146,7 @@ class PublicListings extends StatefulWidget {
 
 class _PublicListingsState extends State<PublicListings> {
   late Future<List<Map<String, dynamic>>> listingsFuture;
+
   String searchText = '';
   String selectedCategory = 'همه';
 
@@ -160,10 +166,12 @@ class _PublicListingsState extends State<PublicListings> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  void refreshListings() {
+  Future<void> refreshListings() async {
+    final future = loadListings();
     setState(() {
-      listingsFuture = loadListings();
+      listingsFuture = future;
     });
+    await future;
   }
 
   @override
@@ -272,10 +280,7 @@ class _PublicListingsState extends State<PublicListings> {
               }
 
               return RefreshIndicator(
-                onRefresh: () async {
-                  refreshListings();
-                  await listingsFuture;
-                },
+                onRefresh: refreshListings,
                 child: ListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: filtered.length,
@@ -312,6 +317,8 @@ class _PublicListingsState extends State<PublicListings> {
   }
 }
 
+// -------------------- LISTING CARD --------------------
+
 class ListingCard extends StatelessWidget {
   final Map<String, dynamic> item;
 
@@ -324,7 +331,6 @@ class ListingCard extends StatelessWidget {
     final type = item['property_type']?.toString() ?? '';
     final area = item['area']?.toString() ?? '';
     final neighborhood = item['neighborhood']?.toString() ?? '';
-    final description = item['description']?.toString() ?? '';
     final price = item['display_price']?.toString() ?? '';
 
     final images = item['image_urls'] is List
@@ -332,46 +338,40 @@ class ListingCard extends StatelessWidget {
         : <String>[];
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       elevation: 2,
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: gold, width: 0.5),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (images.isNotEmpty) ...[
-              SizedBox(
-                height: 190,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: images.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      return GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => Dialog(
-                              child: InteractiveViewer(
-                                child: Image.network(
-                                  images[index],
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.broken_image),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        child: Image.network(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ListingDetailsPage(item: item),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (images.isNotEmpty)
+                SizedBox(
+                  height: 190,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: images.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        return Image.network(
                           images[index],
                           width: 260,
                           fit: BoxFit.cover,
@@ -380,56 +380,342 @@ class ListingCard extends StatelessWidget {
                             color: Colors.grey.shade200,
                             child: const Icon(Icons.broken_image),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              children: [
-                const Icon(Icons.home, color: gold, size: 28),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                        );
+                      },
                     ),
                   ),
+                )
+              else
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.home_work,
+                    size: 55,
+                    color: Colors.grey,
+                  ),
                 ),
-              ],
-            ),
-            const Divider(),
-            Text('نوع معامله: $category'),
-            if (type.isNotEmpty) Text('نوع ملک: $type'),
-            if (area.isNotEmpty) Text('متراژ: $area متر'),
-            if (neighborhood.isNotEmpty) Text('محله: $neighborhood'),
-            if (price.isNotEmpty)
+              const SizedBox(height: 12),
               Text(
-                'قیمت: $price',
+                title,
                 style: const TextStyle(
-                  color: Colors.green,
+                  fontSize: 17,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            if (description.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(description),
-            ],
-            const SizedBox(height: 10),
-            const Row(
-              children: [
-                Icon(Icons.verified_user, color: gold, size: 18),
-                SizedBox(width: 5),
+              const Divider(),
+              Text('نوع معامله: $category'),
+              if (type.isNotEmpty) Text('نوع ملک: $type'),
+              if (area.isNotEmpty) Text('متراژ: $area متر'),
+              if (neighborhood.isNotEmpty) Text('محله: $neighborhood'),
+              if (price.isNotEmpty)
                 Text(
-                  'املاک عسگری نهاوند',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  'قیمت: $price',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.verified_user, color: gold, size: 18),
+                  const SizedBox(width: 5),
+                  const Expanded(
+                    child: Text(
+                      'املاک عسگری نهاوند',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Text(
+                    'مشاهده جزئیات',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_back_ios, size: 13),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------- LISTING DETAILS --------------------
+
+class ListingDetailsPage extends StatelessWidget {
+  final Map<String, dynamic> item;
+
+  const ListingDetailsPage({super.key, required this.item});
+
+  Future<void> callOffice(BuildContext context) async {
+    final uri = Uri(scheme: 'tel', path: officePhone);
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('امکان برقراری تماس وجود ندارد.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('خطا در باز کردن شماره تماس.')),
+        );
+      }
+    }
+  }
+
+  Widget detailRow(IconData icon, String label, String value) {
+    if (value.isEmpty || value == 'null') {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        children: [
+          Icon(icon, color: gold, size: 21),
+          const SizedBox(width: 10),
+          Text(
+            '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = item['image_urls'] is List
+        ? List<String>.from(item['image_urls'])
+        : <String>[];
+
+    final title = item['title']?.toString() ?? 'ملک بدون عنوان';
+    final category = item['category']?.toString() ?? '';
+    final propertyType = item['property_type']?.toString() ?? '';
+    final area = item['area']?.toString() ?? '';
+    final neighborhood = item['neighborhood']?.toString() ?? '';
+    final address = item['full_address']?.toString() ?? '';
+    final bedrooms = item['bedrooms']?.toString() ?? '';
+    final floor = item['floor_number']?.toString() ?? '';
+    final description = item['description']?.toString() ?? '';
+    final displayPrice = item['display_price']?.toString() ?? '';
+
+    final salePrice = item['sale_price']?.toString() ?? '';
+    final deposit = item['deposit_amount']?.toString() ?? '';
+    final rent = item['monthly_rent']?.toString() ?? '';
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('جزئیات ملک'),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.only(bottom: 20),
+          children: [
+            if (images.isNotEmpty)
+              SizedBox(
+                height: 280,
+                child: PageView.builder(
+                  itemCount: images.length,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.black,
+                            child: InteractiveViewer(
+                              child: Image.network(
+                                images[index],
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(
+                                  Icons.broken_image,
+                                  color: Colors.white,
+                                  size: 50,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      child: Image.network(
+                        images[index],
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.broken_image, size: 50),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              Container(
+                height: 220,
+                color: Colors.grey.shade200,
+                child: const Icon(
+                  Icons.home_work,
+                  size: 70,
+                  color: Colors.grey,
+                ),
+              ),
+            if (images.length > 1)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  '${images.length} تصویر - برای مشاهده تصاویر دیگر ورق بزنید',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: black,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      displayPrice.isNotEmpty
+                          ? displayPrice
+                          : category == 'فروش'
+                              ? (salePrice.isNotEmpty
+                                  ? '$salePrice تومان'
+                                  : 'قیمت توافقی')
+                              : 'رهن: ${deposit.isEmpty ? 'توافقی' : '$deposit تومان'}'
+                                  ' | اجاره: ${rent.isEmpty ? 'توافقی' : '$rent تومان'}',
+                      style: const TextStyle(
+                        color: gold,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'مشخصات ملک',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  detailRow(Icons.swap_horiz, 'نوع معامله', category),
+                  detailRow(Icons.home_work, 'نوع ملک', propertyType),
+                  detailRow(Icons.square_foot, 'متراژ', area.isEmpty ? '' : '$area متر'),
+                  detailRow(Icons.bed, 'تعداد اتاق خواب', bedrooms),
+                  detailRow(Icons.layers, 'طبقه', floor),
+                  detailRow(Icons.location_city, 'محله', neighborhood),
+                  detailRow(Icons.location_on, 'آدرس', address),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'توضیحات ملک',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Divider(),
+                    Text(
+                      description,
+                      style: const TextStyle(fontSize: 15, height: 1.8),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: gold),
+                    ),
+                    child: const Column(
+                      children: [
+                        Icon(
+                          Icons.verified_user,
+                          color: gold,
+                          size: 32,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'املاک عسگری نهاوند',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text('مشاور مطمئن معاملات ملکی شما'),
+                        SizedBox(height: 4),
+                        Text(
+                          officePhone,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
+                          textDirection: TextDirection.ltr,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: black,
+                        foregroundColor: gold,
+                      ),
+                      onPressed: () => callOffice(context),
+                      icon: const Icon(Icons.phone),
+                      label: const Text(
+                        'تماس با املاک عسگری',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -437,6 +723,8 @@ class ListingCard extends StatelessWidget {
     );
   }
 }
+
+// -------------------- ADMIN LOGIN --------------------
 
 class AdminGate extends StatefulWidget {
   const AdminGate({super.key});
@@ -595,6 +883,8 @@ class _AdminGateState extends State<AdminGate> {
     );
   }
 }
+
+// -------------------- ADMIN DASHBOARD --------------------
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -868,6 +1158,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 }
 
+// -------------------- HELPERS --------------------
+
 String normalizeDigits(String value) {
   const persian = '۰۱۲۳۴۵۶۷۸۹';
   const arabic = '٠١٢٣٤٥٦٧٨٩';
@@ -891,6 +1183,8 @@ int? parseInteger(String value) {
   if (normalized.isEmpty) return null;
   return int.tryParse(normalized);
 }
+
+// -------------------- PROPERTY EDITOR --------------------
 
 class PropertyEditorDialog extends StatefulWidget {
   final Map<String, dynamic>? item;
@@ -920,6 +1214,7 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
 
   String category = 'فروش';
   String propertyType = 'آپارتمان';
+
   bool published = false;
   bool saving = false;
   bool pickingImages = false;
@@ -1073,7 +1368,12 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
       final fileName =
           '${DateTime.now().microsecondsSinceEpoch}_${uploadedUrls.length}.$extension';
 
-      final path = '${client.auth.currentUser!.id}/$fileName';
+      final user = client.auth.currentUser;
+      if (user == null) {
+        throw Exception('نشست مدیر منقضی شده است. دوباره وارد شوید.');
+      }
+
+      final path = '${user.id}/$fileName';
 
       await client.storage.from('property-images').uploadBinary(
             path,
