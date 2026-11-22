@@ -516,7 +516,6 @@ class ListingDetailsPage extends StatelessWidget {
     final floor = item['floor_number']?.toString() ?? '';
     final description = item['description']?.toString() ?? '';
     final displayPrice = item['display_price']?.toString() ?? '';
-
     final salePrice = item['sale_price']?.toString() ?? '';
     final deposit = item['deposit_amount']?.toString() ?? '';
     final rent = item['monthly_rent']?.toString() ?? '';
@@ -524,9 +523,7 @@ class ListingDetailsPage extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('جزئیات ملک'),
-        ),
+        appBar: AppBar(title: const Text('جزئیات ملک')),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 20),
           children: [
@@ -637,7 +634,11 @@ class ListingDetailsPage extends StatelessWidget {
                   const Divider(),
                   detailRow(Icons.swap_horiz, 'نوع معامله', category),
                   detailRow(Icons.home_work, 'نوع ملک', propertyType),
-                  detailRow(Icons.square_foot, 'متراژ', area.isEmpty ? '' : '$area متر'),
+                  detailRow(
+                    Icons.square_foot,
+                    'متراژ',
+                    area.isEmpty ? '' : '$area متر',
+                  ),
                   detailRow(Icons.bed, 'تعداد اتاق خواب', bedrooms),
                   detailRow(Icons.layers, 'طبقه', floor),
                   detailRow(Icons.location_city, 'محله', neighborhood),
@@ -667,11 +668,7 @@ class ListingDetailsPage extends StatelessWidget {
                     ),
                     child: const Column(
                       children: [
-                        Icon(
-                          Icons.verified_user,
-                          color: gold,
-                          size: 32,
-                        ),
+                        Icon(Icons.verified_user, color: gold, size: 32),
                         SizedBox(height: 8),
                         Text(
                           'املاک عسگری نهاوند',
@@ -1010,6 +1007,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
         appBar: AppBar(
           title: const Text('مدیریت املاک عسگری'),
           actions: [
+            IconButton(
+              tooltip: 'مدیریت مشتریان',
+              icon: const Icon(Icons.people),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CustomerManagementPage(),
+                  ),
+                );
+              },
+            ),
             IconButton(
               tooltip: 'خروج',
               onPressed: logout,
@@ -1734,6 +1743,615 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
                     ),
                   )
                 : const Text('ذخیره فایل'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -------------------- CUSTOMER MANAGEMENT --------------------
+
+class CustomerManagementPage extends StatefulWidget {
+  const CustomerManagementPage({super.key});
+
+  @override
+  State<CustomerManagementPage> createState() =>
+      _CustomerManagementPageState();
+}
+
+class _CustomerManagementPageState extends State<CustomerManagementPage> {
+  late Future<List<Map<String, dynamic>>> customersFuture;
+  String searchText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    customersFuture = loadCustomers();
+  }
+
+  Future<List<Map<String, dynamic>>> loadCustomers() async {
+    final response = await Supabase.instance.client
+        .from('customers')
+        .select()
+        .order('created_at', ascending: false);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<void> refreshCustomers() async {
+    final future = loadCustomers();
+    setState(() {
+      customersFuture = future;
+    });
+    await future;
+  }
+
+  Future<void> openCustomerEditor(
+      [Map<String, dynamic>? customer]) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CustomerEditorDialog(customer: customer),
+    );
+
+    if (result == true && mounted) {
+      await refreshCustomers();
+    }
+  }
+
+  Future<void> deleteCustomer(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف مشتری'),
+        content: const Text(
+          'آیا از حذف اطلاعات این مشتری مطمئن هستید؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await Supabase.instance.client
+          .from('customers')
+          .delete()
+          .eq('id', id);
+
+      await refreshCustomers();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('مشتری حذف شد.')),
+        );
+      }
+    } catch (e) {
+      showMessage('خطا در حذف مشتری: $e');
+    }
+  }
+
+  void showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('مدیریت مشتریان'),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: black,
+          foregroundColor: gold,
+          onPressed: () => openCustomerEditor(),
+          icon: const Icon(Icons.person_add),
+          label: const Text('ثبت مشتری'),
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'جستجو با نام یا شماره تماس...',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    searchText = normalizeDigits(value.trim());
+                  });
+                },
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: customersFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: gold),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('دریافت مشتریان با خطا مواجه شد.'),
+                          TextButton(
+                            onPressed: refreshCustomers,
+                            child: const Text('تلاش مجدد'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final customers = snapshot.data ?? [];
+
+                  final filtered = customers.where((customer) {
+                    final name =
+                        (customer['full_name'] ?? '').toString();
+                    final phone = normalizeDigits(
+                      (customer['phone'] ?? '').toString(),
+                    );
+
+                    return searchText.isEmpty ||
+                        name.contains(searchText) ||
+                        phone.contains(searchText);
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return const Center(
+                      child: Text('مشتری‌ای ثبت نشده است.'),
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: refreshCustomers,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(
+                          12, 4, 12, 90),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final customer = filtered[index];
+                        final id = customer['id'].toString();
+
+                        final name =
+                            customer['full_name']?.toString() ?? '';
+                        final phone =
+                            customer['phone']?.toString() ?? '';
+                        final demand =
+                            customer['demand']?.toString() ?? '';
+                        final budget =
+                            customer['budget']?.toString() ?? '';
+                        final status =
+                            customer['status']?.toString() ?? 'جدید';
+                        final propertyType =
+                            customer['property_type']?.toString() ?? '';
+                        final neighborhood =
+                            customer['neighborhood']?.toString() ?? '';
+                        final followUp =
+                            customer['follow_up_date']?.toString() ?? '';
+
+                        return Card(
+                          color: Colors.white,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text('شماره تماس: $phone'),
+                                if (demand.isNotEmpty)
+                                  Text('نوع درخواست: $demand'),
+                                if (propertyType.isNotEmpty)
+                                  Text('نوع ملک: $propertyType'),
+                                if (budget.isNotEmpty && budget != 'null')
+                                  Text('بودجه: $budget تومان'),
+                                if (neighborhood.isNotEmpty)
+                                  Text('محله موردنظر: $neighborhood'),
+                                if (followUp.isNotEmpty &&
+                                    followUp != 'null')
+                                  Text('تاریخ پیگیری: $followUp'),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Text('وضعیت: '),
+                                    Expanded(
+                                      child: Text(
+                                        status,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'تماس',
+                                      onPressed: () async {
+                                        final uri = Uri(
+                                          scheme: 'tel',
+                                          path: phone,
+                                        );
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.phone,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'ویرایش',
+                                      onPressed: () =>
+                                          openCustomerEditor(customer),
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'حذف',
+                                      onPressed: () => deleteCustomer(id),
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------- CUSTOMER EDITOR --------------------
+
+class CustomerEditorDialog extends StatefulWidget {
+  final Map<String, dynamic>? customer;
+
+  const CustomerEditorDialog({super.key, this.customer});
+
+  @override
+  State<CustomerEditorDialog> createState() =>
+      _CustomerEditorDialogState();
+}
+
+class _CustomerEditorDialogState extends State<CustomerEditorDialog> {
+  final formKey = GlobalKey<FormState>();
+
+  late final TextEditingController nameController;
+  late final TextEditingController phoneController;
+  late final TextEditingController demandController;
+  late final TextEditingController budgetController;
+  late final TextEditingController propertyTypeController;
+  late final TextEditingController neighborhoodController;
+  late final TextEditingController notesController;
+
+  String status = 'جدید';
+  DateTime? followUpDate;
+  bool saving = false;
+
+  final statuses = [
+    'جدید',
+    'در حال پیگیری',
+    'مشتری جدی',
+    'معامله انجام شد',
+    'بایگانی',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    final item = widget.customer ?? {};
+
+    nameController = TextEditingController(
+      text: item['full_name']?.toString() ?? '',
+    );
+    phoneController = TextEditingController(
+      text: item['phone']?.toString() ?? '',
+    );
+    demandController = TextEditingController(
+      text: item['demand']?.toString() ?? '',
+    );
+    budgetController = TextEditingController(
+      text: item['budget']?.toString() ?? '',
+    );
+    propertyTypeController = TextEditingController(
+      text: item['property_type']?.toString() ?? '',
+    );
+    neighborhoodController = TextEditingController(
+      text: item['neighborhood']?.toString() ?? '',
+    );
+    notesController = TextEditingController(
+      text: item['notes']?.toString() ?? '',
+    );
+
+    final savedStatus = item['status']?.toString();
+    if (savedStatus != null && statuses.contains(savedStatus)) {
+      status = savedStatus;
+    }
+
+    final savedDate = item['follow_up_date']?.toString();
+    if (savedDate != null &&
+        savedDate.isNotEmpty &&
+        savedDate != 'null') {
+      followUpDate = DateTime.tryParse(savedDate);
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    demandController.dispose();
+    budgetController.dispose();
+    propertyTypeController.dispose();
+    neighborhoodController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> chooseFollowUpDate() async {
+    final now = DateTime.now();
+
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: followUpDate ?? now,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      helpText: 'انتخاب تاریخ پیگیری',
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        followUpDate = selected;
+      });
+    }
+  }
+
+  String formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  Future<void> saveCustomer() async {
+    if (!formKey.currentState!.validate()) return;
+
+    setState(() {
+      saving = true;
+    });
+
+    try {
+      final data = <String, dynamic>{
+        'full_name': nameController.text.trim(),
+        'phone': normalizeDigits(phoneController.text.trim()),
+        'demand': demandController.text.trim(),
+        'budget': parseNumber(budgetController.text),
+        'property_type': propertyTypeController.text.trim(),
+        'neighborhood': neighborhoodController.text.trim(),
+        'notes': notesController.text.trim(),
+        'status': status,
+        'follow_up_date': followUpDate == null
+            ? null
+            : formatDate(followUpDate!),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      final client = Supabase.instance.client;
+
+      if (widget.customer == null) {
+        await client.from('customers').insert(data);
+      } else {
+        await client
+            .from('customers')
+            .update(data)
+            .eq('id', widget.customer!['id'].toString());
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطا در ذخیره مشتری: $e')),
+        );
+        setState(() {
+          saving = false;
+        });
+      }
+    }
+  }
+
+  Widget field(
+    String label,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool required = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        textDirection: TextDirection.rtl,
+        decoration: InputDecoration(labelText: label),
+        validator: required
+            ? (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'این فیلد الزامی است.';
+                }
+                return null;
+              }
+            : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: Text(
+          widget.customer == null
+              ? 'ثبت مشتری جدید'
+              : 'ویرایش اطلاعات مشتری',
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  field(
+                    'نام و نام خانوادگی',
+                    nameController,
+                    required: true,
+                  ),
+                  field(
+                    'شماره تماس',
+                    phoneController,
+                    keyboardType: TextInputType.phone,
+                    required: true,
+                  ),
+                  field(
+                    'نوع درخواست (خرید، فروش، رهن یا اجاره)',
+                    demandController,
+                    required: true,
+                  ),
+                  field(
+                    'بودجه به تومان',
+                    budgetController,
+                    keyboardType: TextInputType.number,
+                  ),
+                  field('نوع ملک موردنظر', propertyTypeController),
+                  field('محله موردنظر', neighborhoodController),
+                  field(
+                    'توضیحات و جزئیات مشتری',
+                    notesController,
+                    maxLines: 3,
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: status,
+                    decoration: const InputDecoration(
+                      labelText: 'وضعیت مشتری',
+                    ),
+                    items: statuses.map((value) {
+                      return DropdownMenuItem(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                status = value;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: saving ? null : chooseFollowUpDate,
+                      icon: const Icon(Icons.calendar_month),
+                      label: Text(
+                        followUpDate == null
+                            ? 'تعیین تاریخ پیگیری'
+                            : 'پیگیری: ${formatDate(followUpDate!)}',
+                      ),
+                    ),
+                  ),
+                  if (followUpDate != null)
+                    TextButton(
+                      onPressed: saving
+                          ? null
+                          : () {
+                              setState(() {
+                                followUpDate = null;
+                              });
+                            },
+                      child: const Text('پاک کردن تاریخ پیگیری'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: saving
+                ? null
+                : () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: black,
+              foregroundColor: gold,
+            ),
+            onPressed: saving ? null : saveCustomer,
+            child: saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: gold,
+                    ),
+                  )
+                : const Text('ذخیره مشتری'),
           ),
         ],
       ),
