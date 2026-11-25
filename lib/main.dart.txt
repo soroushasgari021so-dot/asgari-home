@@ -3223,7 +3223,8 @@ if (response.statusCode != 200) {
           ),
         ),
       );
-    } catch (_) {
+} catch (e) {
+  debugPrint('UPDATE CHECK FAILED: $e');
       // در صورت قطع اینترنت یا خطا، برنامه بدون مشکل اجرا می‌شود.
     } finally {
       httpClient.close(force: true);
