@@ -3094,7 +3094,139 @@ class CustomerHomeContent extends StatefulWidget {
   State<CustomerHomeContent> createState() => _CustomerHomeContentState();
 }
 
-class _CustomerHomeContentState extends State<CustomerHomeContent> {
+class _CustomerHomeContentState extends 
+  static const String currentAppVersion = '0.1.0';
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkForAppUpdate();
+    });
+  }
+
+  bool isNewerVersion(String latest, String current) {
+    List<int> parseVersion(String version) {
+      return version
+          .replaceFirst(RegExp(r'^[vV]'), '')
+          .split('.')
+          .map((part) => int.tryParse(part) ?? 0)
+          .toList();
+    }
+
+    final latestParts = parseVersion(latest);
+    final currentParts = parseVersion(current);
+
+    for (int i = 0; i < 3; i++) {
+      final latestNumber =
+          i < latestParts.length ? latestParts[i] : 0;
+      final currentNumber =
+          i < currentParts.length ? currentParts[i] : 0;
+
+      if (latestNumber > currentNumber) return true;
+      if (latestNumber < currentNumber) return false;
+    }
+
+    return false;
+  }
+
+  Future<void> checkForAppUpdate() async {
+    final httpClient = HttpClient();
+
+    try {
+      final request = await httpClient
+          .getUrl(Uri.parse(
+              'https://api.github.com/repos/soroushasgari021so-dot/asgari-home/releases/latest'))
+          .timeout(const Duration(seconds: 15));
+
+      request.headers.set('User-Agent', 'ASGARI-HOME');
+      request.headers.set('Accept', 'application/vnd.github+json');
+
+      final response =
+          await request.close().timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) return;
+
+      final responseBody = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 15));
+
+      final release = jsonDecode(responseBody);
+
+      if (release is! Map<String, dynamic>) return;
+      if (release['draft'] == true ||
+          release['prerelease'] == true) {
+        return;
+      }
+
+      final latestVersion = release['tag_name'] as String?;
+      if (latestVersion == null || latestVersion.isEmpty) return;
+
+      if (!isNewerVersion(latestVersion, currentAppVersion)) return;
+
+      final assets = release['assets'];
+      if (assets is! List) return;
+
+      String? downloadUrl;
+
+      for (final asset in assets) {
+        if (asset is Map &&
+            asset['name'] is String &&
+            (asset['name'] as String).toLowerCase().endsWith('.apk') &&
+            asset['browser_download_url'] is String) {
+          downloadUrl = asset['browser_download_url'] as String;
+          break;
+        }
+      }
+
+      if (downloadUrl == null || !mounted) return;
+
+      showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('نسخه جدید در دسترس است'),
+            content: Text(
+              'نسخه $latestVersion اپلیکیشن املاک عسگری منتشر شده است. '
+              'برای دریافت نسخه جدید روی دکمه دانلود بزنید.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('بعداً'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: gold,
+                  foregroundColor: black,
+                ),
+                onPressed: () async {
+                  Navigator.pop(dialogContext);
+
+                  final uri = Uri.tryParse(downloadUrl!);
+                  if (uri != null) {
+                    await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
+                child: const Text('دانلود نسخه جدید'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (_) {
+      // در صورت قطع اینترنت یا خطا، برنامه بدون مشکل اجرا می‌شود.
+    } finally {
+      httpClient.close(force: true);
+    }
+  }State<CustomerHomeContent> {
   void openPage(Widget page) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
