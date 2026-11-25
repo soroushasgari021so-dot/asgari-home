@@ -3094,7 +3094,7 @@ class CustomerHomeContent extends StatefulWidget {
   State<CustomerHomeContent> createState() => _CustomerHomeContentState();
 }
 
-class _CustomerHomeContentState extends 
+class _CustomerHomeContentState extends State<CustomerHomeContent> {
   static const String currentAppVersion = '0.1.0';
 
   @override
@@ -3226,7 +3226,7 @@ class _CustomerHomeContentState extends
     } finally {
       httpClient.close(force: true);
     }
-  }State<CustomerHomeContent> {
+  }
   void openPage(Widget page) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
