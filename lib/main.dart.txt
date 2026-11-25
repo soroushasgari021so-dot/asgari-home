@@ -3146,8 +3146,10 @@ class _CustomerHomeContentState extends State<CustomerHomeContent> {
       final response =
           await request.close().timeout(const Duration(seconds: 15));
 
-      if (response.statusCode != 200) return;
-
+if (response.statusCode != 200) {
+  debugPrint('UPDATE CHECK HTTP ERROR: ${response.statusCode}');
+  return;
+}
       final responseBody = await response
           .transform(utf8.decoder)
           .join()
