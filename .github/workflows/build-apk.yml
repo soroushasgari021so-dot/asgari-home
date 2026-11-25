@@ -37,6 +37,121 @@ jobs:
           grep -q 'android.permission.INTERNET' "$MANIFEST" || \
             sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
 
+      - name: Configure permanent Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode \
+            > android/app/asgarihome-release-key.jks
+
+          test -s android/app/asgarihome-release-key.jks
+
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=asgarihome\nstoreFile=asgarihome-release-key.jks\n' \
+            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD" \
+            > android/key.properties
+
+      - name: Apply permanent signing configuration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kts = Path("android/app/build.gradle.kts")
+          groovy = Path("android/app/build.gradle")
+
+          if kts.exists():
+              path = kts
+              is_kts = True
+          elif groovy.exists():
+              path = groovy
+              is_kts = False
+          else:
+              raise SystemExit("Android Gradle file not found")
+
+          source = path.read_text()
+
+          if is_kts:
+              header = """
+          import java.util.Properties
+          import java.io.FileInputStream
+
+          val keystoreProperties = Properties()
+          val keystorePropertiesFile = rootProject.file("key.properties")
+          keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
+          """
+              signing = """
+              signingConfigs {
+                  create("release") {
+                      keyAlias = keystoreProperties["keyAlias"] as String
+                      keyPassword = keystoreProperties["keyPassword"] as String
+                      storeFile = file(keystoreProperties["storeFile"] as String)
+                      storePassword = keystoreProperties["storePassword"] as String
+                  }
+              }
+          """
+              source = header + source
+              source, count = re.subn(
+                  r'android\s*\{',
+                  lambda m: m.group(0) + "\n" + signing,
+                  source,
+                  count=1
+              )
+              if count != 1:
+                  raise SystemExit("Could not configure Android signing")
+
+              source, count = re.subn(
+                  r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)',
+                  'signingConfig = signingConfigs.getByName("release")',
+                  source
+              )
+          else:
+              header = """
+          import java.util.Properties
+          import java.io.FileInputStream
+
+          def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+          """
+              signing = """
+              signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile file(keystoreProperties['storeFile'])
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+          """
+              source = header + source
+              source, count = re.subn(
+                  r'android\s*\{',
+                  lambda m: m.group(0) + "\n" + signing,
+                  source,
+                  count=1
+              )
+              if count != 1:
+                  raise SystemExit("Could not configure Android signing")
+
+              source, count = re.subn(
+                  r'signingConfig\s+signingConfigs\.debug',
+                  'signingConfig signingConfigs.release',
+                  source
+              )
+
+          if count != 1:
+              raise SystemExit("Could not replace default debug signing")
+
+          path.write_text(source)
+          print("Permanent Android signing configured successfully")
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -53,6 +168,7 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || (echo "Missing SUPABASE_URL secret" && exit 1)
           test -n "$SUPABASE_ANON_KEY" || (echo "Missing SUPABASE_ANON_KEY secret" && exit 1)
+
           flutter build apk --release \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
