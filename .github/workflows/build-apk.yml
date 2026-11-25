@@ -1,9 +1,11 @@
+
 name: Build ASGARI HOME updated APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -11,8 +13,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -22,6 +26,9 @@ jobs:
 
       - name: Generate Android platform files
         run: flutter create --no-pub --platforms=android --project-name asgari_home .
+
+      - name: Restore main Dart source
+        run: cp lib/main.dart.txt lib/main.dart
 
       - name: Set Android display name and internet permission
         run: |
