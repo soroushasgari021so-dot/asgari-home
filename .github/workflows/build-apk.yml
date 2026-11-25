@@ -57,18 +57,9 @@ jobs:
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
-      - name: Prepare final source artifact
-        run: |
-          mkdir -p release_source/lib
-          cp lib/main.dart release_source/lib/main.dart
-          cp pubspec.yaml release_source/pubspec.yaml
-
-      - name: Upload APK and final source
+      - name: Upload APK only
         uses: actions/upload-artifact@v4
         with:
           name: asgarihome-updated-release
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            release_source/lib/main.dart
-            release_source/pubspec.yaml
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
