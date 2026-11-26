@@ -3625,7 +3625,21 @@ DropdownButtonFormField<String>(
     if(v!=null)setState(()=>propertyType=v);
   },
 ),
-    const SizedBox(height:10), TextField(controller:details,maxLines:4,decoration:const InputDecoration(labelText:'if(category=='رهن' || category=='اجاره') ...[
+    if(category=='رهن' || category=='اجاره') ...[
+  const SizedBox(height:10),
+  TextField(
+    controller:deposit,
+    keyboardType:TextInputType.number,
+    inputFormatters:[ThousandsSeparatorInputFormatter()],
+    decoration:const InputDecoration(labelText:'مبلغ رهن (تومان)'),
+  ),
+],
+const SizedBox(height:10),
+TextField(
+  controller:details,
+  maxLines:4,
+  decoration:const InputDecoration(labelText:'توضیحات و امکانات دلخواه'),
+),'رهن' || category=='اجاره') ...[
   const SizedBox(height:10),
   TextField(
     controller:deposit,
