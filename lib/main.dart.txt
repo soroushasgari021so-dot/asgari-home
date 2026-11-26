@@ -1130,7 +1130,7 @@ return ListView.builder(
                       children: [
                         if (images.isNotEmpty)
                           SizedBox(
-                            height: 100,
+                           height: 65,
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: images.length,
