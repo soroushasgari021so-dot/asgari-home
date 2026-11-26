@@ -1105,6 +1105,7 @@ return ListView.builder(
           },
           decoration: InputDecoration(
             hintText: 'جستجو در عنوان، کد فایل یا محله...',
+helperText: 'تعداد فایل‌های پیدا شده: ${items.length}',
             prefixIcon: const Icon(Icons.search, color: gold),
 suffixIcon: searchQuery.isNotEmpty
     ? IconButton(
