@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:persian_datetimepickers/persian_datetimepickers.dart';
@@ -32,7 +33,7 @@ Future<void> main() async {
     try {
       await Supabase.initialize(
         url: supabaseUrl,
-        anonKey: supabaseAnonKey,
+        publishableKey: supabaseAnonKey,
       );
       configured = true;
     } catch (e) {
@@ -1897,7 +1898,7 @@ enabled: enabled,
                 children: [
                   textField('عنوان فایل', titleController, required: true),
                   DropdownButtonFormField<String>(
-                    value: category,
+                    initialValue: category,
                     decoration: const InputDecoration(labelText: 'نوع معامله'),
                     items: const [
                       DropdownMenuItem(
@@ -1919,7 +1920,7 @@ enabled: enabled,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: propertyType,
+                    initialValue: propertyType,
                     decoration: const InputDecoration(labelText: 'نوع ملک'),
                     items: propertyTypes.map((type) {
                       return DropdownMenuItem(
@@ -1937,7 +1938,7 @@ enabled: enabled,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: parkingType,
+                    initialValue: parkingType,
                     decoration: const InputDecoration(
                       labelText: 'وضعیت پارکینگ',
                     ),
@@ -1959,7 +1960,7 @@ enabled: enabled,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: elevatorStatus,
+                    initialValue: elevatorStatus,
                     decoration: const InputDecoration(
                       labelText: 'وضعیت آسانسور',
                     ),
@@ -1981,7 +1982,7 @@ enabled: enabled,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: storageStatus,
+                    initialValue: storageStatus,
                     decoration: const InputDecoration(
                       labelText: 'وضعیت انباری',
                     ),
@@ -2003,7 +2004,7 @@ enabled: enabled,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: documentStatus,
+                    initialValue: documentStatus,
                     decoration: const InputDecoration(
                       labelText: 'وضعیت سند',
                     ),
@@ -2654,7 +2655,7 @@ class _CustomerEditorDialogState extends State<CustomerEditorDialog> {
                     maxLines: 3,
                   ),
                   DropdownButtonFormField<String>(
-                    value: status,
+                    initialValue: status,
                     decoration: const InputDecoration(
                       labelText: 'وضعیت مشتری',
                     ),
@@ -2862,7 +2863,7 @@ class _CustomerFollowUpPageState extends State<CustomerFollowUpPage> {
               vertical: 5,
             ),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -2899,7 +2900,7 @@ class _CustomerFollowUpPageState extends State<CustomerFollowUpPage> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: color.withOpacity(0.5),
+          color: color.withValues(alpha: 0.5),
         ),
       ),
       child: Padding(
@@ -2924,7 +2925,7 @@ class _CustomerFollowUpPageState extends State<CustomerFollowUpPage> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -3542,7 +3543,7 @@ class _ToolTile extends StatelessWidget {
     child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: gold.withOpacity(.65)),
+        border: Border.all(color: gold.withValues(alpha: .65)),
         borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.all(8),
@@ -3669,7 +3670,7 @@ class _PropertyRequestPageState extends State<PropertyRequestPage> {
 
   Widget dropdown(String label, String value, List<String> options, ValueChanged<String?> onChanged) =>
       DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(labelText: label),
         items: options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
         onChanged: onChanged,
@@ -3769,7 +3770,7 @@ class _ConstructionCalculatorPageState extends State<ConstructionCalculatorPage>
     const Text('روش محاسبه را انتخاب کنید.'), const SizedBox(height:8), SegmentedButton<int>(segments:const [ButtonSegment(value:0,label:Text('درصد توافقی')),ButtonSegment(value:1,label:Text('ارزش و هزینه ساخت'))],selected:{method},onSelectionChanged:(s){setState((){method=s.first;result='';});}),
     const SizedBox(height:14),field(ownerPercent,'درصد سهم مالک'),field(builderPercent,'درصد سهم سازنده'),
     if(method==0)...[
-      DropdownButtonFormField<String>(value:distribution,decoration:const InputDecoration(labelText:'نحوه تقسیم'),items:['متراژ','تعداد واحد'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v){if(v!=null)setState(()=>distribution=v);}),
+      DropdownButtonFormField<String>(initialValue:distribution,decoration:const InputDecoration(labelText:'نحوه تقسیم'),items:['متراژ','تعداد واحد'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v){if(v!=null)setState(()=>distribution=v);}),
       const SizedBox(height:10),field(distribution=='متراژ'?totalArea:unitCount,distribution=='متراژ'?'مجموع متراژ قابل تقسیم':'تعداد کل واحدها'),
     ] else ...[
       field(totalArea,'مجموع متراژ ساخته‌شده (مترمربع)'),field(buildingPrice,'ارزش روز هر مترمربع ساختمان تکمیل‌شده (تومان)',money:true),field(buildCost,'هزینه ساخت هر مترمربع (تومان)',money:true),field(extraCost,'هزینه‌های جانبی کل پروژه (تومان)',money:true),
