@@ -3585,8 +3585,10 @@ void dispose() {
     setState(()=>sending=true);
     try {
       await Supabase.instance.client.from('property_requests').insert({
-        'customer_name':name.text.trim(), 'phone':normalizeDigits(phone.text.trim()), 'request_type':category,
-        'budget':parseNumber(budget.text.replaceAll('٬','').replaceAll(',','')),
+        'customer_name':name.text.trim(),
+'phone':normalizeDigits(phone.text.trim()),
+'request_type':category,
+'budget':parseNumber(budget.text.replaceAll('٬','').replaceAll(',','')),
 'area':parseNumber(area.text),
 'property_type':propertyType,
 'deposit_amount':parseNumber(deposit.text.replaceAll('٬','').replaceAll(',','')),
@@ -3596,8 +3598,7 @@ void dispose() {
 'elevator_status':elevatorStatus,
 'storage_status':storageStatus,
 'details':details.text.trim(),
-'status':'جدید'
-        'area':parseNumber(area.text), 'details':details.text.trim(), 'status':'جدید'
+'status':'جدید',
       });
       if(!mounted)return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('درخواست شما با موفقیت ثبت و برای بررسی ارسال شد.')));
