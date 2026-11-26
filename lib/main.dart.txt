@@ -1114,7 +1114,22 @@ return ListView.builder(
       );
     }
 
-    final item = items[index - 1];
+    if (items.isEmpty) {
+  return const Center(
+    child: Padding(
+      padding: EdgeInsets.all(24),
+      child: Text(
+        'نتیجه‌ای برای جستجوی شما یافت نشد.',
+        style: TextStyle(
+          fontSize: 14,
+          color: Colors.grey,
+        ),
+      ),
+    ),
+  );
+}
+
+final item = items[index - 1];
                 final id = item['id'].toString();
                 final published = item['is_published'] == true;
                 final images = item['image_urls'] is List
