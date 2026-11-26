@@ -1197,7 +1197,7 @@ onPressed: () =>
                                   changePublication(id, published),
                               icon: const Icon(
                                 Icons.public,
-                                color: Colors.green,
+                                color: Colors.green,size: 20,
                               ),
                             ),
                             IconButton(
