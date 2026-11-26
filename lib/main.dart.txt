@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:persian_datetimepickers/persian_datetimepickers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -3344,7 +3345,7 @@ class CustomerHomeContent extends StatefulWidget {
 }
 
 class _CustomerHomeContentState extends State<CustomerHomeContent> {
-static const String currentAppVersion = '0.1.1';
+
 
   @override
   void initState() {
@@ -3384,6 +3385,11 @@ static const String currentAppVersion = '0.1.1';
     final httpClient = HttpClient();
 
     try {
+      // Read the installed version from Android package metadata. This stays
+      // in sync with the version in pubspec.yaml for every future release.
+      final packageInfo = await PackageInfo.fromPlatform();
+      final installedVersion = packageInfo.version.trim();
+      if (installedVersion.isEmpty) return;
       final request = await httpClient
           .getUrl(Uri.parse(
               'https://api.github.com/repos/soroushasgari021so-dot/asgari-home/releases/latest'))
@@ -3415,7 +3421,7 @@ if (response.statusCode != 200) {
       final latestVersion = release['tag_name'] as String?;
       if (latestVersion == null || latestVersion.isEmpty) return;
 
-      if (!isNewerVersion(latestVersion, currentAppVersion)) return;
+      if (!isNewerVersion(latestVersion, installedVersion)) return;
 
       final assets = release['assets'];
       if (assets is! List) return;
