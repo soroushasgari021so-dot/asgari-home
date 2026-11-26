@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - chatgpt/write-access-check
 
 permissions:
   contents: read
