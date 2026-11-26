@@ -1188,7 +1188,11 @@ return ListView.builder(
                             const Spacer(),
                             IconButton(
                               tooltip: 'انتشار',
-                              onPressed: () =>
+                         constraints: const BoxConstraints(
+  minWidth: 36,
+  minHeight: 36,
+),
+padding: EdgeInsets.zero,     onPressed: () =>
                                   changePublication(id, published),
                               icon: const Icon(
                                 Icons.public,
