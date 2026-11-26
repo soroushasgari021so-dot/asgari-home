@@ -175,9 +175,12 @@ once(
                           item['title']?.toString() ?? '',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 17,
+                            fontSize: 15,
                           ),
                         ),
+                        if ((item['file_code'] ?? '').toString().isNotEmpty)
+                          Text('کد فایل: ${item['file_code']}',
+                              style: const TextStyle(color: gold, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),''',
 '''                        Text(
                           item['title']?.toString() ?? '',
