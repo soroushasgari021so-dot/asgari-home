@@ -75,33 +75,20 @@ Future<void> main() async {
     }
   }
 
-  runApp(AsgariApp(configured: configured, initialThemeMode: initialThemeMode));
+  runApp(AsgariApp(configured: configured));
 }
 
 class AsgariApp extends StatefulWidget {
   final bool configured;
-  final ThemeMode initialThemeMode;
 
-  const AsgariApp({
-    super.key,
-    required this.configured,
-    required this.initialThemeMode,
-  });
+  const AsgariApp({super.key, required this.configured});
 
   @override
   State<AsgariApp> createState() => _AsgariAppState();
 }
 
 class _AsgariAppState extends State<AsgariApp> {
-  late ThemeMode selectedThemeMode;
-
-  @override
-  void initState() {
-    super.initState();
-    selectedThemeMode = widget.initialThemeMode;
-  }
-
-remove unused change method  ThemeData buildLightTheme() {
+remove unused stateremove unused change method  ThemeData buildLightTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -771,7 +758,7 @@ class ListingDetailsPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: gold),
                     ),
