@@ -1083,7 +1083,7 @@ final items = allItems.where((item) {
   return searchableText.contains(query);
 }).toList();
 
-            if (items.isEmpty) {
+if (allItems.isEmpty) {
               return const Center(
                 child: Text('هنوز فایلی ثبت نشده است.'),
               );
