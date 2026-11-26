@@ -1,5 +1,6 @@
 
 name: Build ASGARI HOME updated APK
+# CI validation for the dedicated update branch and pull requests.
 
 on:
   workflow_dispatch:
