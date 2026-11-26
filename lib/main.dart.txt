@@ -1105,10 +1105,10 @@ return ListView.builder(
           },
           decoration: InputDecoration(
             hintText: 'جستجو در عنوان، کد فایل یا محله...',
-            prefixIcon: const Icon(Icons.search),
+            prefixIcon: const Icon(Icons.search, color: gold),
 suffixIcon: searchQuery.isNotEmpty
     ? IconButton(
-        icon: const Icon(Icons.clear),
+        icon: const Icon(Icons.clear, color: gold),
         onPressed: () {
           searchController.clear();
           setState(() {
