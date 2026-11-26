@@ -2011,7 +2011,6 @@ enabled: enabled,
                     formatThousands: true,
                     enabled: category == 'رهن و اجاره',
                   ),
-displayPriceController),
                   textField(
                     'توضیحات ملک',
                     descriptionController,
