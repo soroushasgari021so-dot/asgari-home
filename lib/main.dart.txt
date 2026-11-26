@@ -3614,6 +3614,17 @@ void dispose() {
     const SizedBox(height:10), DropdownButtonFormField<String>(value:category,decoration:const InputDecoration(labelText:'نوع درخواست'),items:['خرید','اجاره','رهن','فروش ملک'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v){if(v!=null)setState(()=>category=v);}),
     const SizedBox(height:10), TextField(controller:budget,keyboardType:TextInputType.number,inputFormatters:[ThousandsSeparatorInputFormatter()],decoration:const InputDecoration(labelText:'بودجه تقریبی (تومان)')),
     const SizedBox(height:10), TextField(controller:area,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'متراژ موردنظر (مترمربع)')),
+const SizedBox(height:10),
+DropdownButtonFormField<String>(
+  value: propertyType,
+  decoration: const InputDecoration(labelText: 'نوع ملک'),
+  items: ['آپارتمان','ویلایی','زمین','باغ']
+      .map((v)=>DropdownMenuItem(value:v,child:Text(v)))
+      .toList(),
+  onChanged:(v){
+    if(v!=null)setState(()=>propertyType=v);
+  },
+),
     const SizedBox(height:10), TextField(controller:details,maxLines:4,decoration:const InputDecoration(labelText:'توضیحات و امکانات دلخواه')),
     const SizedBox(height:18), FilledButton(style:FilledButton.styleFrom(backgroundColor:black,foregroundColor:gold),onPressed:sending?null:submit,child:sending?const CircularProgressIndicator():const Text('ارسال درخواست')),
   ])));
