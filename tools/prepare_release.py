@@ -175,28 +175,30 @@ once(
                   detailRow(Icons.home_work, 'نوع ملک', propertyType),''',
 "details code row"
 )
-once(
-'''                        Text(
-                          item['title']?.toString() ?? '',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),''',
-'''                        Text(
-                          item['title']?.toString() ?? '',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        if ((item['file_code'] ?? '').toString().isNotEmpty)
-                          Text('کد فایل: ${item['file_code']}',
-                              style: const TextStyle(color: gold, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),''',
-"admin code label"
-)
+admin_code_label = "کد فایل: ${item['file_code']}"
+if admin_code_label not in source:
+    once(
+    '''                        Text(
+                              item['title']?.toString() ?? '',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),''',
+    '''                        Text(
+                              item['title']?.toString() ?? '',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if ((item['file_code'] ?? '').toString().isNotEmpty)
+                              Text('کد فایل: ${item['file_code']}',
+                                  style: const TextStyle(color: gold, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),''',
+    "admin code label"
+    )
 once(
 '''  late final TextEditingController titleController;
   late final TextEditingController areaController;''',
