@@ -876,7 +876,11 @@ late Future<List<Map<String, dynamic>>> listingsFuture;
 final TextEditingController searchController = TextEditingController();
 String searchQuery = '';
 
-  @override
+@override
+void dispose() {
+  searchController.dispose();
+  super.dispose();
+}
   void initState() {
     super.initState();
     listingsFuture = loadListings();
