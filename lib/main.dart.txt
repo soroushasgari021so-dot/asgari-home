@@ -1187,17 +1187,19 @@ return ListView.builder(
                             Text(published ? 'منتشر شده' : 'پیش‌نویس'),
                             const Spacer(),
                             IconButton(
-                               tooltip: 'انتشار',
-constraints: const BoxConstraints(
-  minWidth: 36,
-  minHeight: 36,
+  tooltip: 'انتشار',
+  constraints: const BoxConstraints(
+    minWidth: 36,
+    minHeight: 36,
+  ),
+  padding: EdgeInsets.zero,
+  onPressed: () => changePublication(id, published),
+  icon: const Icon(
+    Icons.public,
+    color: Colors.green,
+    size: 20,
+  ),
 ),
-padding: EdgeInsets.zero,
-onPressed: () =>
-                                  changePublication(id, published),
-                              icon: const Icon(Icons.public, color: Colors.green, size: 20),
-                              ),
-                            ),
                             IconButton(
                               tooltip: 'ویرایش',constraints: const BoxConstraints(
   minWidth: 36,
