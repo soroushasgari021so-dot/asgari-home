@@ -1209,6 +1209,7 @@ size: 20,
 padding: EdgeInsets.zero,
                               onPressed: () => openEditor(item),
                               icon: const Icon(Icons.edit, color: Colors.blue),
+size: 20,
                             ),
                             IconButton(
                               tooltip: 'حذف',
