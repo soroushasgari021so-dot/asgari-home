@@ -183,7 +183,7 @@ once(
                           item['title']?.toString() ?? '',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 17,
+                            fontSize: 15,
                           ),
                         ),
                         if ((item['file_code'] ?? '').toString().isNotEmpty)
