@@ -1068,7 +1068,20 @@ void initState() {
               );
             }
 
-            final items = snapshot.data ?? [];
+final allItems = snapshot.data ?? [];
+final query = searchQuery.trim().toLowerCase();
+
+final items = allItems.where((item) {
+  final searchableText = [
+    item['title'],
+    item['id'],
+    item['category'],
+    item['property_type'],
+    item['neighborhood'],
+  ].join(' ').toLowerCase();
+
+  return searchableText.contains(query);
+}).toList();
 
             if (items.isEmpty) {
               return const Center(
