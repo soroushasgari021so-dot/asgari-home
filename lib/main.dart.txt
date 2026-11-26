@@ -881,7 +881,8 @@ void dispose() {
   searchController.dispose();
   super.dispose();
 }
-  void initState() {
+@override
+void initState() {
     super.initState();
     listingsFuture = loadListings();
   }
