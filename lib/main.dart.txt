@@ -3628,12 +3628,10 @@ DropdownButtonFormField<String>(
     if(category=='رهن' || category=='اجاره') ...[
   const SizedBox(height:10),
   TextField(
-    controller:deposit,
-    keyboardType:TextInputType.number,
-    inputFormatters:[ThousandsSeparatorInputFormatter()],
-    decoration:const InputDecoration(labelText:'مبلغ رهن (تومان)'),
-  ),
-],
+  controller:details,
+  maxLines:4,
+  decoration:const InputDecoration(labelText:'توضیحات و امکانات دلخواه'),
+),
 const SizedBox(height:10),
 TextField(
   controller:details,
