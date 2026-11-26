@@ -3587,6 +3587,16 @@ void dispose() {
       await Supabase.instance.client.from('property_requests').insert({
         'customer_name':name.text.trim(), 'phone':normalizeDigits(phone.text.trim()), 'request_type':category,
         'budget':parseNumber(budget.text.replaceAll('٬','').replaceAll(',','')),
+'area':parseNumber(area.text),
+'property_type':propertyType,
+'deposit_amount':parseNumber(deposit.text.replaceAll('٬','').replaceAll(',','')),
+'monthly_rent':parseNumber(rent.text.replaceAll('٬','').replaceAll(',','')),
+'floor_number':int.tryParse(normalizeDigits(floor.text)),
+'parking_status':parkingStatus,
+'elevator_status':elevatorStatus,
+'storage_status':storageStatus,
+'details':details.text.trim(),
+'status':'جدید'
         'area':parseNumber(area.text), 'details':details.text.trim(), 'status':'جدید'
       });
       if(!mounted)return;
