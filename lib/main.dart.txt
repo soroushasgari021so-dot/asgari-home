@@ -3552,7 +3552,19 @@ class PropertyRequestPage extends StatefulWidget {
   State<PropertyRequestPage> createState() => _PropertyRequestPageState();
 }
 class _PropertyRequestPageState extends State<PropertyRequestPage> {
-  final name=TextEditingController(), phone=TextEditingController(), budget=TextEditingController(), area=TextEditingController(), details=TextEditingController();
+  final name = TextEditingController();
+final phone = TextEditingController();
+final budget = TextEditingController();
+final area = TextEditingController();
+final details = TextEditingController();
+final deposit = TextEditingController();
+final rent = TextEditingController();
+final floor = TextEditingController();
+
+String propertyType = 'آپارتمان';
+String parkingStatus = 'فرقی ندارد';
+String elevatorStatus = 'فرقی ندارد';
+String storageStatus = 'فرقی ندارد';
   String category='خرید';
   bool sending=false;
   @override
