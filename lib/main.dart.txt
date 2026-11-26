@@ -88,7 +88,7 @@ class AsgariApp extends StatefulWidget {
 }
 
 class _AsgariAppState extends State<AsgariApp> {
-remove unused stateremove unused change method  ThemeData buildLightTheme() {
+  ThemeData buildLightTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -3488,43 +3488,30 @@ if (response.statusCode != 200) {
       context: sheetContext,
       builder: (dialogContext) => AlertDialog(
         title: const Text('حالت نمایش برنامه'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<ThemeMode>(
+        content: SegmentedButton<ThemeMode>(
+          segments: const [
+            ButtonSegment(
               value: ThemeMode.system,
-              groupValue: currentAppThemeMode,
-              title: const Text('مطابق تنظیمات گوشی'),
-              onChanged: (value) {
-                if (value != null) {
-                  Navigator.pop(dialogContext);
-                  appThemeModeChanged(value);
-                }
-              },
+              label: Text('مطابق گوشی'),
+              icon: Icon(Icons.phone_android),
             ),
-            RadioListTile<ThemeMode>(
+            ButtonSegment(
               value: ThemeMode.light,
-              groupValue: currentAppThemeMode,
-              title: const Text('روشن'),
-              onChanged: (value) {
-                if (value != null) {
-                  Navigator.pop(dialogContext);
-                  appThemeModeChanged(value);
-                }
-              },
+              label: Text('روشن'),
+              icon: Icon(Icons.light_mode_outlined),
             ),
-            RadioListTile<ThemeMode>(
+            ButtonSegment(
               value: ThemeMode.dark,
-              groupValue: currentAppThemeMode,
-              title: const Text('تاریک'),
-              onChanged: (value) {
-                if (value != null) {
-                  Navigator.pop(dialogContext);
-                  appThemeModeChanged(value);
-                }
-              },
+              label: Text('تاریک'),
+              icon: Icon(Icons.dark_mode_outlined),
             ),
           ],
+          selected: {currentAppThemeMode},
+          onSelectionChanged: (selection) {
+            final selected = selection.first;
+            Navigator.pop(dialogContext);
+            appThemeModeChanged(selected);
+          },
         ),
       ),
     );
@@ -3540,7 +3527,7 @@ if (response.statusCode != 200) {
         child: SafeArea(
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Theme.of(sheetContext).colorScheme.surface,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               border: Border(top: BorderSide(color: gold, width: 2)),
