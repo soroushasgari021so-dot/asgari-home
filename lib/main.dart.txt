@@ -394,7 +394,7 @@ final price = category == 'فروش'
               if (neighborhood.isNotEmpty) Text('محله: $neighborhood'),
               if (price.isNotEmpty)
                 Text(
-                  'قیمت: $price',
+                  category == 'فروش' ? 'قیمت: $price' : price,
                   style: const TextStyle(
                     color: Colors.green,
                     fontWeight: FontWeight.bold,
