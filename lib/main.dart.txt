@@ -1195,7 +1195,7 @@ constraints: const BoxConstraints(
 padding: EdgeInsets.zero,
 onPressed: () =>
                                   changePublication(id, published),
-                              icon: const Icon(Icons.edit, color: Colors.green, size: 20),
+                              icon: const Icon(Icons.public, color: Colors.green, size: 20),
                               ),
                             ),
                             IconButton(
