@@ -144,30 +144,6 @@ class _PublicListingsState extends State<PublicListings> {
   void initState() {
     super.initState();
     listingsFuture = loadListings();
-    propertyRequestsChannel = Supabase.instance.client
-        .channel('admin-property-requests')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'property_requests',
-          callback: (payload) {
-            if (!mounted) return;
-            final customer = (payload.newRecord['customer_name'] ?? 'مشتری').toString();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('درخواست ملک جدید از $customer ثبت شد.'),
-                duration: const Duration(seconds: 5),
-                action: SnackBarAction(
-                  label: 'مشاهده',
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => const PropertyRequestsAdminPage(),
-                  )),
-                ),
-              ),
-            );
-          },
-        )
-        .subscribe();
   }
 
   Future<List<Map<String, dynamic>>> loadListings() async {
@@ -937,6 +913,30 @@ void dispose() {
 void initState() {
     super.initState();
     listingsFuture = loadListings();
+    propertyRequestsChannel = Supabase.instance.client
+        .channel('admin-property-requests')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'property_requests',
+          callback: (payload) {
+            if (!mounted) return;
+            final customer = (payload.newRecord['customer_name'] ?? 'مشتری').toString();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('درخواست ملک جدید از $customer ثبت شد.'),
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'مشاهده',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const PropertyRequestsAdminPage(),
+                  )),
+                ),
+              ),
+            );
+          },
+        )
+        .subscribe();
   }
 
   Future<List<Map<String, dynamic>>> loadListings() async {
