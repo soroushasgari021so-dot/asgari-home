@@ -1078,12 +1078,6 @@ void initState() {
             ListTile(leading: const Icon(Icons.notifications_active_outlined), title: const Text('یادآوری پیگیری مشتریان'), onTap: () {
               Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerFollowUpPage()));
             }),
-            ListTile(leading: const Icon(Icons.currency_exchange), title: const Text('تبدیل رهن و اجاره'), onTap: () {
-              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const RentConvertPage()));
-            }),
-            ListTile(leading: const Icon(Icons.apartment), title: const Text('محاسبه مشارکت در ساخت'), onTap: () {
-              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const ConstructionCalculatorPage()));
-            }),
             const Spacer(),
             const Divider(),
             ListTile(leading: const Icon(Icons.close), title: const Text('بستن منو'), onTap: () => Navigator.pop(context)),
@@ -1121,16 +1115,17 @@ void initState() {
             }
 
 final allItems = snapshot.data ?? [];
-final query = searchQuery.trim().toLowerCase();
+final query = normalizeDigits(searchQuery.trim()).toUpperCase();
 
 final items = allItems.where((item) {
   final searchableText = [
     item['title'],
     item['id'],
+    item['file_code'],
     item['category'],
     item['property_type'],
     item['neighborhood'],
-  ].join(' ').toLowerCase();
+  ].join(' ').toUpperCase();
 
   return searchableText.contains(query);
 }).toList();
@@ -1224,7 +1219,7 @@ final item = items[index - 1];
                       children: [
                         if (images.isNotEmpty)
                           SizedBox(
-                           height: 65,
+                           height: 52,
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: images.length,
@@ -1235,7 +1230,7 @@ final item = items[index - 1];
                                   borderRadius: BorderRadius.circular(8),
                                   child: Image.network(
                                     images[imageIndex],
-                                    width: 110,
+                                    width: 88,
                                     fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) =>
                                         const Icon(Icons.broken_image),
@@ -1252,7 +1247,9 @@ final item = items[index - 1];
                             fontSize: 15,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        if ((item['file_code'] ?? '').toString().isNotEmpty)
+                          Text('کد فایل: ${item['file_code']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: gold)),
+                        const SizedBox(height: 3),
                         Text(
                           '${item['category'] ?? ''} | '
                           '${item['property_type'] ?? ''}',
