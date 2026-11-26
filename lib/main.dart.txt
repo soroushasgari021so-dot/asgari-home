@@ -2001,6 +2001,7 @@ enabled: enabled,
                     depositController,
                     keyboardType: TextInputType.number,
                     formatThousands: true,
+enabled: category == 'فروش',
                   ),
                   textField(
                     'اجاره ماهانه (تومان)',
