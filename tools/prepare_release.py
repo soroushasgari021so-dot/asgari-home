@@ -67,7 +67,7 @@ compact_card = r'''class ListingCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 7),
       elevation: 1,
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(11),
         side: const BorderSide(color: gold, width: 0.45),
