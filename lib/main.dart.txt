@@ -1122,7 +1122,7 @@ return ListView.builder(
                     : <String>[];
 
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: 6),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
