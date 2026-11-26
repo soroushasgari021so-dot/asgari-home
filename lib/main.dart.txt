@@ -1091,7 +1091,7 @@ if (allItems.isEmpty) {
 
 return ListView.builder(
   padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
-  itemCount: items.length + 1,
+  itemCount: items.isEmpty ? 2 : items.length + 1,
   itemBuilder: (context, index) {
     if (index == 0) {
       return Padding(
