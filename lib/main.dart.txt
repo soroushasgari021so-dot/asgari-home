@@ -297,7 +297,13 @@ class ListingCard extends StatelessWidget {
     final type = item['property_type']?.toString() ?? '';
     final area = item['area']?.toString() ?? '';
     final neighborhood = item['neighborhood']?.toString() ?? '';
-    final price = formatPriceText(item['display_price']?.toString() ?? '');
+    final salePrice = formatMoney(item['sale_price']?.toString() ?? '');
+final deposit = formatMoney(item['deposit_amount']?.toString() ?? '');
+final rent = formatMoney(item['monthly_rent']?.toString() ?? '');
+
+final price = category == 'فروش'
+    ? (salePrice.isNotEmpty ? '$salePrice تومان' : 'قیمت توافقی')
+    : 'رهن: ${deposit.isNotEmpty ? '$deposit تومان' : 'توافقی'} | اجاره: ${rent.isNotEmpty ? '$rent تومان' : 'توافقی'}';
 
     final images = item['image_urls'] is List
         ? List<String>.from(item['image_urls'])
