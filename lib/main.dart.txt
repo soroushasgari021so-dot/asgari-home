@@ -3910,11 +3910,11 @@ class _ConstructionCalculatorPageState extends State<ConstructionCalculatorPage>
       const SizedBox(height:10),field(distribution=='متراژ'?totalArea:unitCount,distribution=='متراژ'?'مجموع متراژ قابل تقسیم':'تعداد کل واحدها'),
     ] else ...[
       field(totalArea,'مجموع متراژ ساخته‌شده (مترمربع)'),field(buildingPrice,'ارزش روز هر مترمربع ساختمان تکمیل‌شده (تومان)',money:true),field(buildCost,'هزینه ساخت هر مترمربع (تومان)',money:true),field(extraCost,'هزینه‌های جانبی کل پروژه (تومان)',money:true),
-      const Text('فرمول: ابتدا هزینه کل ساخت از ارزش کل ساختمان کسر می‌شود؛ سپس ارزش خالص طبق درصد توافق تقسیم می‌شود.',style:TextStyle(fontSize:12,color:Colors.black54)),
+      Text('فرمول: ابتدا هزینه کل ساخت از ارزش کل ساختمان کسر می‌شود؛ سپس ارزش خالص طبق درصد توافق تقسیم می‌شود.',style:TextStyle(fontSize:12,color:Theme.of(context).colorScheme.onSurfaceVariant)),
     ],
     const SizedBox(height:14),FilledButton(style:FilledButton.styleFrom(backgroundColor:black,foregroundColor:gold),onPressed:calculate,child:const Text('محاسبه سهم طرفین')),
     if(result.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(14),child:Text(result,style:const TextStyle(height:1.8,fontWeight:FontWeight.w600)))),
-    const Text('نتایج تقریبی هستند و جایگزین توافق و بررسی کارشناسی قرارداد مشارکت نیستند.',style:TextStyle(fontSize:11,color:Colors.black54)),
+    Text('نتایج تقریبی هستند و جایگزین توافق و بررسی کارشناسی قرارداد مشارکت نیستند.',style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),
   ])));
 }
 
