@@ -54,7 +54,12 @@ compact_card = r'''class ListingCard extends StatelessWidget {
     final area = item['area']?.toString() ?? '';
     final neighborhood = item['neighborhood']?.toString() ?? '';
     final fileCode = item['file_code']?.toString() ?? '';
-    final price = formatPriceText(item['display_price']?.toString() ?? '');
+    final salePrice = formatMoney(item['sale_price']?.toString() ?? '');
+    final deposit = formatMoney(item['deposit_amount']?.toString() ?? '');
+    final rent = formatMoney(item['monthly_rent']?.toString() ?? '');
+    final price = category == 'فروش'
+        ? (salePrice.isNotEmpty ? 'قیمت: $salePrice تومان' : 'قیمت توافقی')
+        : 'رهن: ${deposit.isNotEmpty ? '$deposit تومان' : 'توافقی'} | اجاره: ${rent.isNotEmpty ? '$rent تومان' : 'توافقی'}';
     final images = item['image_urls'] is List
         ? List<String>.from(item['image_urls'])
         : <String>[];
@@ -62,7 +67,7 @@ compact_card = r'''class ListingCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 7),
       elevation: 1,
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(11),
         side: const BorderSide(color: gold, width: 0.45),
@@ -115,7 +120,7 @@ compact_card = r'''class ListingCard extends StatelessWidget {
                       if (category.isNotEmpty)
                         Text(category, style: const TextStyle(fontSize: 11, color: gold, fontWeight: FontWeight.bold)),
                       if (fileCode.isNotEmpty)
-                        Text('کد: $fileCode', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                        Text('کد: $fileCode', style: const TextStyle(fontSize: 13, color: gold, fontWeight: FontWeight.w900)),
                     ]),
                     const SizedBox(height: 3),
                     Text([
@@ -123,11 +128,11 @@ compact_card = r'''class ListingCard extends StatelessWidget {
                       if (area.isNotEmpty) '$area متر',
                       if (neighborhood.isNotEmpty) neighborhood,
                     ].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                      style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w600)),
                     if (price.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(price, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: const TextStyle(color: Colors.green, fontSize: 14, fontWeight: FontWeight.bold)),
                     ],
                     const SizedBox(height: 3),
                     const Text('املاک عسگری نهاوند  |  مشاهده جزئیات ←',
@@ -170,28 +175,30 @@ once(
                   detailRow(Icons.home_work, 'نوع ملک', propertyType),''',
 "details code row"
 )
-once(
-'''                        Text(
-                          item['title']?.toString() ?? '',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                        ),
-                        const SizedBox(height: 8),''',
-'''                        Text(
-                          item['title']?.toString() ?? '',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                        ),
-                        if ((item['file_code'] ?? '').toString().isNotEmpty)
-                          Text('کد فایل: ${item['file_code']}',
-                              style: const TextStyle(color: gold, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),''',
-"admin code label"
-)
+admin_code_label = "کد فایل: ${item['file_code']}"
+if admin_code_label not in source:
+    once(
+    '''                        Text(
+                              item['title']?.toString() ?? '',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),''',
+    '''                        Text(
+                              item['title']?.toString() ?? '',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if ((item['file_code'] ?? '').toString().isNotEmpty)
+                              Text('کد فایل: ${item['file_code']}',
+                                  style: const TextStyle(color: gold, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),''',
+    "admin code label"
+    )
 once(
 '''  late final TextEditingController titleController;
   late final TextEditingController areaController;''',
