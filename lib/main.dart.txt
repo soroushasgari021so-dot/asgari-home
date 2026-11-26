@@ -3568,7 +3568,18 @@ String storageStatus = 'فرقی ندارد';
   String category='خرید';
   bool sending=false;
   @override
-  void dispose(){ name.dispose(); phone.dispose(); budget.dispose(); area.dispose(); details.dispose(); super.dispose(); }
+  @override
+void dispose() {
+  name.dispose();
+  phone.dispose();
+  budget.dispose();
+  area.dispose();
+  details.dispose();
+  deposit.dispose();
+  rent.dispose();
+  floor.dispose();
+  super.dispose();
+}
   Future<void> submit() async {
     if(name.text.trim().isEmpty || phone.text.trim().isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام و شماره تماس الزامی است.'))); return; }
     if(phone.text.trim().length < 10){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('شماره تماس معتبر وارد کنید.'))); return; }
