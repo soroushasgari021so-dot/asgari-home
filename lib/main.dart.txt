@@ -144,6 +144,30 @@ class _PublicListingsState extends State<PublicListings> {
   void initState() {
     super.initState();
     listingsFuture = loadListings();
+    propertyRequestsChannel = Supabase.instance.client
+        .channel('admin-property-requests')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'property_requests',
+          callback: (payload) {
+            if (!mounted) return;
+            final customer = (payload.newRecord['customer_name'] ?? 'مشتری').toString();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('درخواست ملک جدید از $customer ثبت شد.'),
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'مشاهده',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const PropertyRequestsAdminPage(),
+                  )),
+                ),
+              ),
+            );
+          },
+        )
+        .subscribe();
   }
 
   Future<List<Map<String, dynamic>>> loadListings() async {
@@ -646,6 +670,23 @@ class ListingDetailsPage extends StatelessWidget {
                       style: const TextStyle(fontSize: 15, height: 1.8),
                     ),
                   ],
+                  if (category == 'رهن و اجاره') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: black, side: const BorderSide(color: gold)),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => RentConvertPage(
+                            initialDeposit: parseNumber(item['deposit_amount']?.toString() ?? ''),
+                            initialRent: parseNumber(item['monthly_rent']?.toString() ?? ''),
+                          ),
+                        )),
+                        icon: const Icon(Icons.currency_exchange),
+                        label: const Text('تبدیل رهن و اجاره این آگهی'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -879,12 +920,17 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
 late Future<List<Map<String, dynamic>>> listingsFuture;
+RealtimeChannel? propertyRequestsChannel;
 final TextEditingController searchController = TextEditingController();
 String searchQuery = '';
 
 @override
 void dispose() {
   searchController.dispose();
+  final channel = propertyRequestsChannel;
+  if (channel != null) {
+    Supabase.instance.client.removeChannel(channel);
+  }
   super.dispose();
 }
 @override
@@ -1001,47 +1047,46 @@ void initState() {
         appBar: AppBar(
           title: const Text('مدیریت املاک عسگری'),
           actions: [
-            // دکمه جدید یادآوری پیگیری
-            IconButton(
-              tooltip: 'یادآوری پیگیری',
-              icon: const Icon(Icons.notifications_active),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CustomerFollowUpPage(),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: 'درخواست‌های ملک',
-              icon: const Icon(Icons.assignment),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PropertyRequestsAdminPage()),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: 'مدیریت مشتریان',
-              icon: const Icon(Icons.people),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CustomerManagementPage(),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: 'خروج',
-              onPressed: logout,
-              icon: const Icon(Icons.logout),
-            ),
+            Builder(builder: (drawerContext) => IconButton(
+              tooltip: 'ابزارهای مدیریت',
+              icon: const Icon(Icons.menu_open),
+              onPressed: () => Scaffold.of(drawerContext).openEndDrawer(),
+            )),
+            IconButton(tooltip: 'خروج', onPressed: logout, icon: const Icon(Icons.logout)),
           ],
+        ),
+        endDrawer: Drawer(
+          child: SafeArea(child: Column(children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              color: black,
+              child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.admin_panel_settings, color: gold, size: 36),
+                SizedBox(height: 10),
+                Text('ابزارهای مدیریت', style: TextStyle(color: gold, fontSize: 19, fontWeight: FontWeight.bold)),
+                Text('املاک عسگری نهاوند', style: TextStyle(color: Colors.white70)),
+              ]),
+            ),
+            ListTile(leading: const Icon(Icons.assignment_outlined), title: const Text('درخواست‌های ملک'), onTap: () {
+              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const PropertyRequestsAdminPage()));
+            }),
+            ListTile(leading: const Icon(Icons.people_outline), title: const Text('مدیریت مشتریان'), onTap: () {
+              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerManagementPage()));
+            }),
+            ListTile(leading: const Icon(Icons.notifications_active_outlined), title: const Text('یادآوری پیگیری مشتریان'), onTap: () {
+              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerFollowUpPage()));
+            }),
+            ListTile(leading: const Icon(Icons.currency_exchange), title: const Text('تبدیل رهن و اجاره'), onTap: () {
+              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const RentConvertPage()));
+            }),
+            ListTile(leading: const Icon(Icons.apartment), title: const Text('محاسبه مشارکت در ساخت'), onTap: () {
+              Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const ConstructionCalculatorPage()));
+            }),
+            const Spacer(),
+            const Divider(),
+            ListTile(leading: const Icon(Icons.close), title: const Text('بستن منو'), onTap: () => Navigator.pop(context)),
+          ])),
         ),
         floatingActionButton: FloatingActionButton.extended(
           backgroundColor: black,
@@ -3515,7 +3560,9 @@ class _ToolTile extends StatelessWidget {
 }
 
 class RentConvertPage extends StatefulWidget {
-  const RentConvertPage({super.key});
+  final num? initialDeposit;
+  final num? initialRent;
+  const RentConvertPage({super.key, this.initialDeposit, this.initialRent});
   @override
   State<RentConvertPage> createState() => _RentConvertPageState();
 }
@@ -3524,6 +3571,12 @@ class _RentConvertPageState extends State<RentConvertPage> {
   final rent = TextEditingController();
   final rate = TextEditingController(text: '۳٬۰۰۰٬۰۰۰');
   num? equivalent;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialDeposit != null) deposit.text = formatMoney(widget.initialDeposit.toString());
+    if (widget.initialRent != null) rent.text = formatMoney(widget.initialRent.toString());
+  }
   @override
   void dispose() { deposit.dispose(); rent.dispose(); rate.dispose(); super.dispose(); }
   num? n(TextEditingController c) => parseNumber(c.text.replaceAll('٬','').replaceAll(',',''));
@@ -3552,96 +3605,128 @@ class PropertyRequestPage extends StatefulWidget {
   State<PropertyRequestPage> createState() => _PropertyRequestPageState();
 }
 class _PropertyRequestPageState extends State<PropertyRequestPage> {
-  final name = TextEditingController();
-final phone = TextEditingController();
-final budget = TextEditingController();
-final area = TextEditingController();
-final details = TextEditingController();
-final deposit = TextEditingController();
-final rent = TextEditingController();
-final floor = TextEditingController();
+  final name = TextEditingController(), phone = TextEditingController();
+  final budget = TextEditingController(), area = TextEditingController();
+  final details = TextEditingController(), deposit = TextEditingController();
+  final rent = TextEditingController(), floor = TextEditingController();
+  String propertyType = 'آپارتمان', parkingStatus = 'فرقی ندارد';
+  String elevatorStatus = 'فرقی ندارد', storageStatus = 'فرقی ندارد';
+  String category = 'خرید';
+  bool sending = false;
+  bool get isRental => category == 'رهن و اجاره';
 
-String propertyType = 'آپارتمان';
-String parkingStatus = 'فرقی ندارد';
-String elevatorStatus = 'فرقی ندارد';
-String storageStatus = 'فرقی ندارد';
-  String category='خرید';
-  bool sending=false;
   @override
-void dispose() {
-  name.dispose();
-  phone.dispose();
-  budget.dispose();
-  area.dispose();
-  details.dispose();
-  deposit.dispose();
-  rent.dispose();
-  floor.dispose();
-  super.dispose();
-}
+  void dispose() {
+    for (final c in [name, phone, budget, area, details, deposit, rent, floor]) { c.dispose(); }
+    super.dispose();
+  }
+
+  num? readNumber(TextEditingController c) {
+    final value = normalizeDigits(c.text).replaceAll('٬', '').replaceAll(',', '').trim();
+    return value.isEmpty ? null : parseNumber(value);
+  }
+
   Future<void> submit() async {
-    if(name.text.trim().isEmpty || phone.text.trim().isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام و شماره تماس الزامی است.'))); return; }
-    if(phone.text.trim().length < 10){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('شماره تماس معتبر وارد کنید.'))); return; }
-    setState(()=>sending=true);
+    if (name.text.trim().isEmpty || phone.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام و شماره تماس الزامی است.')));
+      return;
+    }
+    if (normalizeDigits(phone.text.trim()).length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('شماره تماس معتبر وارد کنید.')));
+      return;
+    }
+    if (isRental && readNumber(deposit) == null && readNumber(rent) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مبلغ رهن یا اجاره را وارد کنید.')));
+      return;
+    }
+    setState(() => sending = true);
     try {
       await Supabase.instance.client.from('property_requests').insert({
-        'customer_name':name.text.trim(),
-'phone':normalizeDigits(phone.text.trim()),
-'request_type':category,
-'budget':parseNumber(budget.text.replaceAll('٬','').replaceAll(',','')),
-'area':parseNumber(area.text),
-'property_type':propertyType,
-'deposit_amount':parseNumber(deposit.text.replaceAll('٬','').replaceAll(',','')),
-'monthly_rent':parseNumber(rent.text.replaceAll('٬','').replaceAll(',','')),
-'floor_number':int.tryParse(normalizeDigits(floor.text)),
-'parking_status':parkingStatus,
-'elevator_status':elevatorStatus,
-'storage_status':storageStatus,
-'details':details.text.trim(),
-'status':'جدید',
+        'customer_name': name.text.trim(),
+        'phone': normalizeDigits(phone.text.trim()),
+        'request_type': category,
+        'budget': isRental ? null : readNumber(budget),
+        'area': readNumber(area),
+        'property_type': propertyType,
+        'deposit_amount': isRental ? readNumber(deposit) : null,
+        'monthly_rent': isRental ? readNumber(rent) : null,
+        'floor_number': int.tryParse(normalizeDigits(floor.text.trim())),
+        'parking_status': parkingStatus,
+        'elevator_status': elevatorStatus,
+        'storage_status': storageStatus,
+        'details': details.text.trim(),
+        'status': 'جدید',
       });
-      if(!mounted)return;
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('درخواست شما با موفقیت ثبت و برای بررسی ارسال شد.')));
       Navigator.pop(context);
-    } catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ثبت درخواست انجام نشد: $e'))); }
-    finally { if(mounted)setState(()=>sending=false); }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ثبت درخواست انجام نشد: $e')));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
   }
+
+  Widget dropdown(String label, String value, List<String> options, ValueChanged<String?> onChanged) =>
+      DropdownButtonFormField<String>(
+        value: value,
+        decoration: InputDecoration(labelText: label),
+        items: options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: onChanged,
+      );
+
+  Widget field(TextEditingController c, String label, {bool money = false, bool decimal = false, int maxLines = 1}) =>
+      TextField(
+        controller: c,
+        maxLines: maxLines,
+        keyboardType: maxLines > 1 ? TextInputType.multiline : TextInputType.numberWithOptions(decimal: decimal),
+        inputFormatters: money ? [ThousandsSeparatorInputFormatter()] : [],
+        decoration: InputDecoration(labelText: label),
+      );
+
   @override
-  Widget build(BuildContext context)=>Directionality(textDirection: TextDirection.rtl, child: Scaffold(appBar: AppBar(title: const Text('ثبت درخواست ملک')), body: ListView(padding: const EdgeInsets.all(16), children:[
-    const Text('مشخصات و شرایط ملک موردنظر را وارد کنید تا کارشناسان املاک عسگری با شما تماس بگیرند.'), const SizedBox(height:12),
-    TextField(controller:name,decoration:const InputDecoration(labelText:'نام و نام خانوادگی')),
-    const SizedBox(height:10), TextField(controller:phone,keyboardType:TextInputType.phone,decoration:const InputDecoration(labelText:'شماره تماس')),
-    const SizedBox(height:10), DropdownButtonFormField<String>(value:category,decoration:const InputDecoration(labelText:'نوع درخواست'),items:['خرید','اجاره','رهن','فروش ملک'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v){if(v!=null)setState(()=>category=v);}),
-    const SizedBox(height:10), TextField(controller:budget,keyboardType:TextInputType.number,inputFormatters:[ThousandsSeparatorInputFormatter()],decoration:const InputDecoration(labelText:'بودجه تقریبی (تومان)')),
-    const SizedBox(height:10), TextField(controller:area,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'متراژ موردنظر (مترمربع)')),
-const SizedBox(height:10),
-DropdownButtonFormField<String>(
-  value: propertyType,
-  decoration: const InputDecoration(labelText: 'نوع ملک'),
-  items: ['آپارتمان','ویلایی','زمین','باغ']
-      .map((v)=>DropdownMenuItem(value:v,child:Text(v)))
-      .toList(),
-  onChanged:(v){
-    if(v!=null)setState(()=>propertyType=v);
-  },
-),
-if(category=='رهن' || category=='اجاره') ...[
-  const SizedBox(height:10),
-  TextField(
-    controller:deposit,
-    keyboardType:TextInputType.number,
-    inputFormatters:[ThousandsSeparatorInputFormatter()],
-    decoration:const InputDecoration(labelText:'مبلغ رهن (تومان)'),
-  ),
-],
-const SizedBox(height:10),
-TextField(
-  controller:details,
-  maxLines:4,
-  decoration:const InputDecoration(labelText:'توضیحات و امکانات دلخواه'),
-),
-    const SizedBox(height:18), FilledButton(style:FilledButton.styleFrom(backgroundColor:black,foregroundColor:gold),onPressed:sending?null:submit,child:sending?const CircularProgressIndicator():const Text('ارسال درخواست')),
-  ])));
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      appBar: AppBar(title: const Text('ثبت درخواست ملک')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('مشخصات و شرایط ملک موردنظر را وارد کنید تا کارشناسان املاک عسگری با شما تماس بگیرند.', style: TextStyle(height: 1.7)),
+        const SizedBox(height: 14),
+        field(name, 'نام و نام خانوادگی'),
+        const SizedBox(height: 10),
+        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'شماره تماس')),
+        const SizedBox(height: 10),
+        dropdown('نوع درخواست', category, const ['خرید', 'فروش', 'رهن و اجاره'], (v) { if (v != null) setState(() => category = v); }),
+        const SizedBox(height: 10),
+        if (!isRental) field(budget, 'بودجه یا قیمت موردنظر (تومان)', money: true)
+        else ...[
+          field(deposit, 'مبلغ رهن (تومان)', money: true),
+          const SizedBox(height: 10),
+          field(rent, 'اجاره ماهانه (تومان)', money: true),
+        ],
+        const SizedBox(height: 10),
+        field(area, 'متراژ موردنظر (مترمربع)', decimal: true),
+        const SizedBox(height: 10),
+        dropdown('نوع ملک', propertyType, const ['ویلایی', 'آپارتمان', 'زمین', 'باغ'], (v) { if (v != null) setState(() => propertyType = v); }),
+        const SizedBox(height: 10),
+        field(floor, 'طبقه (اختیاری)'),
+        const SizedBox(height: 10),
+        dropdown('پارکینگ', parkingStatus, const ['فرقی ندارد', 'دارد', 'ندارد'], (v) { if (v != null) setState(() => parkingStatus = v); }),
+        const SizedBox(height: 10),
+        dropdown('آسانسور', elevatorStatus, const ['فرقی ندارد', 'دارد', 'ندارد'], (v) { if (v != null) setState(() => elevatorStatus = v); }),
+        const SizedBox(height: 10),
+        dropdown('انباری', storageStatus, const ['فرقی ندارد', 'دارد', 'ندارد'], (v) { if (v != null) setState(() => storageStatus = v); }),
+        const SizedBox(height: 10),
+        field(details, 'توضیحات و امکانات دلخواه (اختیاری)', maxLines: 4),
+        const SizedBox(height: 18),
+        SizedBox(height: 50, child: FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: black, foregroundColor: gold),
+          onPressed: sending ? null : submit,
+          child: sending ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: gold)) : const Text('ارسال درخواست'),
+        )),
+      ]),
+    ),
+  );
 }
 
 class ConstructionCalculatorPage extends StatefulWidget {
@@ -3699,12 +3784,89 @@ class _ConstructionCalculatorPageState extends State<ConstructionCalculatorPage>
 class PropertyRequestsAdminPage extends StatefulWidget {
   const PropertyRequestsAdminPage({super.key});
   @override
-  State<PropertyRequestsAdminPage> createState()=>_PropertyRequestsAdminPageState();
+  State<PropertyRequestsAdminPage> createState() => _PropertyRequestsAdminPageState();
 }
-class _PropertyRequestsAdminPageState extends State<PropertyRequestsAdminPage>{
-  late Future<List<Map<String,dynamic>>> future;
-  @override void initState(){super.initState();future=load();}
-  Future<List<Map<String,dynamic>>> load()async{final r=await Supabase.instance.client.from('property_requests').select().order('created_at',ascending:false);return List<Map<String,dynamic>>.from(r);}
-  Future<void> refresh()async{setState(()=>future=load());await future;}
-  Future<void> updateStatus(String id,String status)async{await Supabase.instance.client.from('property_requests').update({'status':status}).eq('id',id);await refresh();}
-  @override Widget build(BuildContext context)=>Directionality(textDirection:TextDirection.rtl,child:Scaffold(appBar:AppBar(title:const Text('درخواست‌های ملک'),actions:[IconButton(onPressed:refresh,icon:const Icon(Icons.refresh))]),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(context,s){if(s.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());if(s.hasError)return Center(child:Text('خطا در دریافت درخواست‌ها: ${s.error}'));final items=s.data??[];if(items.isEmpty)return const Center(child:Text('درخواستی ثبت نشده است.'));return ListView.builder(padding:const EdgeInsets.all(12),itemCount:items.length,itemBuilder:(context,i){final x=items[i];final id=x['id'].toString();return Card(child:Padding(padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${x['customer_name']} | ${x['request_type']}',style:const TextStyle(fontWeight:FontWeight.bold)),Text('تماس: ${x['phone']}'),if(x['budget']!=null)Text('بودجه: ${formatMoney(x['budget'].toString())} تومان'),if(x['area']!=null)Text('متراژ: ${x['area']} متر'),if((x['details']??'').toString().isNotEmpty)Text('توضیحات: ${x['details']}'),const SizedBox(height:8),Row(children:[Text('وضعیت: ${x['status']??'جدید'}'),const Spacer(),DropdownButton<String>(value:['جدید','در حال پیگیری','انجام شد'].contains(x['status'])?x['status']:'جدید',items:['جدید','در حال پیگیری','انجام شد'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v){if(v!=null)updateStatus(id,v);})])])));});})));}
+class _PropertyRequestsAdminPageState extends State<PropertyRequestsAdminPage> {
+  late Future<List<Map<String, dynamic>>> future;
+  bool showArchived = false;
+  @override
+  void initState() { super.initState(); future = load(); }
+  Future<List<Map<String, dynamic>>> load() async {
+    final data = await Supabase.instance.client.from('property_requests').select().order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
+  Future<void> refresh() async { final next = load(); setState(() => future = next); await next; }
+
+  Future<void> updateStatus(String id, String status) async {
+    try {
+      await Supabase.instance.client.from('property_requests').update({'status': status}).eq('id', id);
+      await refresh();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(status == 'انجام شد' ? 'درخواست به بایگانی منتقل شد.' : 'وضعیت درخواست به‌روزرسانی شد.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تغییر وضعیت انجام نشد: $e')));
+    }
+  }
+
+  Widget requestCard(Map<String, dynamic> x) {
+    final id = x['id'].toString(), status = (x['status'] ?? 'جدید').toString();
+    return Card(margin: const EdgeInsets.only(bottom: 10), child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Expanded(child: Text((x['customer_name'] ?? 'بدون نام').toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))), Chip(label: Text(status), visualDensity: VisualDensity.compact)]),
+        Text('نوع درخواست: ${x['request_type'] ?? '-'}'),
+        Text('تماس: ${x['phone'] ?? '-'}'),
+        if (x['property_type'] != null) Text('نوع ملک: ${x['property_type']}'),
+        if (x['budget'] != null) Text('بودجه/قیمت: ${formatMoney(x['budget'].toString())} تومان'),
+        if (x['deposit_amount'] != null) Text('رهن: ${formatMoney(x['deposit_amount'].toString())} تومان'),
+        if (x['monthly_rent'] != null) Text('اجاره ماهانه: ${formatMoney(x['monthly_rent'].toString())} تومان'),
+        if (x['area'] != null) Text('متراژ: ${x['area']} متر'),
+        if (x['floor_number'] != null) Text('طبقه: ${x['floor_number']}'),
+        Text('پارکینگ: ${x['parking_status'] ?? 'نامشخص'} | آسانسور: ${x['elevator_status'] ?? 'نامشخص'} | انباری: ${x['storage_status'] ?? 'نامشخص'}'),
+        if ((x['details'] ?? '').toString().trim().isNotEmpty) Text('توضیحات: ${x['details']}'),
+        const SizedBox(height: 8),
+        Row(children: [
+          const Text('وضعیت:'),
+          const SizedBox(width: 8),
+          Expanded(child: DropdownButton<String>(
+            isExpanded: true,
+            value: const ['جدید', 'در حال پیگیری', 'انجام شد'].contains(status) ? status : 'جدید',
+            items: const ['جدید', 'در حال پیگیری', 'انجام شد'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: (v) { if (v != null && v != status) updateStatus(id, v); },
+          )),
+        ]),
+      ]),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      appBar: AppBar(title: Text(showArchived ? 'بایگانی درخواست‌ها' : 'درخواست‌های ملک'), actions: [IconButton(onPressed: refresh, icon: const Icon(Icons.refresh))]),
+      body: Column(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(12, 12, 12, 4), child: SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, icon: Icon(Icons.inbox_outlined), label: Text('درخواست‌های فعال')),
+            ButtonSegment(value: true, icon: Icon(Icons.archive_outlined), label: Text('بایگانی')),
+          ],
+          selected: {showArchived},
+          onSelectionChanged: (selection) => setState(() => showArchived = selection.first),
+        )),
+        Expanded(child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snapshot.hasError) return Center(child: Text('خطا در دریافت درخواست‌ها: ${snapshot.error}'));
+            final all = snapshot.data ?? [];
+            final items = all.where((x) => showArchived ? x['status'] == 'انجام شد' : x['status'] != 'انجام شد').toList();
+            if (items.isEmpty) return Center(child: Text(showArchived ? 'درخواست بایگانی‌شده‌ای وجود ندارد.' : 'درخواست فعالی ثبت نشده است.'));
+            return RefreshIndicator(onRefresh: refresh, child: ListView.builder(
+              padding: const EdgeInsets.all(12), itemCount: items.length,
+              itemBuilder: (context, index) => requestCard(items[index]),
+            ));
+          },
+        )),
+      ]),
+    ),
+  );
+}
