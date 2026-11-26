@@ -1200,28 +1200,34 @@ return ListView.builder(
     size: 20,
   ),
 ),
-                            IconButton(
-                              tooltip: 'ویرایش',constraints: const BoxConstraints(
-  minWidth: 36,
-  minHeight: 36,
+IconButton(
+  tooltip: 'ویرایش',
+  constraints: const BoxConstraints(
+    minWidth: 36,
+    minHeight: 36,
+  ),
+  padding: EdgeInsets.zero,
+  onPressed: () => openEditor(item),
+  icon: const Icon(
+    Icons.edit,
+    color: Colors.blue,
+    size: 20,
+  ),
 ),
-padding: EdgeInsets.zero,
-                              onPressed: () => openEditor(item),
-                              icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                            ),
-                            IconButton(
-                              tooltip: 'حذف',
-constraints: const BoxConstraints(
-  minWidth: 36,
-  minHeight: 36,
+IconButton(
+  tooltip: 'حذف',
+  constraints: const BoxConstraints(
+    minWidth: 36,
+    minHeight: 36,
+  ),
+  padding: EdgeInsets.zero,
+  onPressed: () => deleteListing(id),
+  icon: const Icon(
+    Icons.delete,
+    color: Colors.red,
+    size: 20,
+  ),
 ),
-padding: EdgeInsets.zero,                              onPressed: () => deleteListing(id),
-                              icon: const Icon(
-  Icons.delete,
-  color: Colors.red,
-  size: 20,
-),
-                            ),
                           ],
                         ),
                       ],
