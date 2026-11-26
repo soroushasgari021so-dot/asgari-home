@@ -872,7 +872,9 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  late Future<List<Map<String, dynamic>>> listingsFuture;
+late Future<List<Map<String, dynamic>>> listingsFuture;
+final TextEditingController searchController = TextEditingController();
+String searchQuery = '';
 
   @override
   void initState() {
