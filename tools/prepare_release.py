@@ -178,7 +178,7 @@ once(
                             fontSize: 15,
                           ),
                         ),
-                        const SizedBox(height: 8),''',
+                        const SizedBox(height: 4),''',
 '''                        Text(
                           item['title']?.toString() ?? '',
                           style: const TextStyle(
