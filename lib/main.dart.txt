@@ -1546,7 +1546,9 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
   Future<void> openDirections(Map<String, dynamic> listing) async {
     final lat = double.tryParse(listing['latitude'].toString());
     final lng = double.tryParse(listing['longitude'].toString());
-    if (lat == null || lng == null) return;
+    if (lat == null || lng == null) {
+      return;
+    }
     final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
@@ -2023,7 +2025,7 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
       if (ownerName.isNotEmpty || ownerPhone.isNotEmpty || ownerNotesController.text.trim().isNotEmpty) {
         final digitsOnlyPhone = ownerPhone.replaceAll(RegExp(r'[^0-9]'), '');
         final nationalPhone = digitsOnlyPhone.startsWith('98') && digitsOnlyPhone.length == 12
-            ? '0' + digitsOnlyPhone.substring(2)
+            ? '0${digitsOnlyPhone.substring(2)}'
             : digitsOnlyPhone;
         if (ownerName.isEmpty || !RegExp(r'^09\d{9}$').hasMatch(nationalPhone)) {
           throw Exception('نام مالک و شماره همراه معتبر ۱۱ رقمی (09...) الزامی است.');
@@ -2033,13 +2035,14 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
           'phone': nationalPhone,
           'notes': ownerNotesController.text.trim(),
         };
-        if (ownerId != null && ownerId!.isNotEmpty) {
-          await client.from('owners').update(ownerPayload).eq('id', ownerId!);
+        if (ownerId != null && ownerId.isNotEmpty) {
+          await client.from('owners').update(ownerPayload).eq('id', ownerId);
         } else {
           final matchingOwner = await client.from('owners').select('id').eq('phone', nationalPhone).maybeSingle();
           if (matchingOwner != null) {
-            ownerId = matchingOwner['id'].toString();
-            await client.from('owners').update(ownerPayload).eq('id', ownerId!);
+            final matchingOwnerId = matchingOwner['id'].toString();
+            ownerId = matchingOwnerId;
+            await client.from('owners').update(ownerPayload).eq('id', matchingOwnerId);
           } else {
             final createdOwner = await client.from('owners').insert(ownerPayload).select('id').single();
             ownerId = createdOwner['id'].toString();
@@ -2429,10 +2432,12 @@ enabled: enabled,
                           ? LatLng(double.parse(latitudeController.text), double.parse(longitudeController.text))
                           : const LatLng(34.1885, 48.3764);
                       final selected = await showDialog<LatLng>(context: context, builder: (_) => MapLocationPickerDialog(initialLocation: initial));
-                      if (selected != null && mounted) setState(() {
-                        latitudeController.text = selected.latitude.toStringAsFixed(7);
-                        longitudeController.text = selected.longitude.toStringAsFixed(7);
-                      });
+                      if (selected != null && mounted) {
+                        setState(() {
+                          latitudeController.text = selected.latitude.toStringAsFixed(7);
+                          longitudeController.text = selected.longitude.toStringAsFixed(7);
+                        });
+                      }
                     },
                     icon: const Icon(Icons.map_outlined),
                     label: Text(latitudeController.text.isEmpty ? 'انتخاب موقعیت روی نقشه' : 'تغییر موقعیت انتخاب‌شده'),
