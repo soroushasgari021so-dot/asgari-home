@@ -11,6 +11,7 @@ alter table public.public_listings
 alter table public.public_listings
   drop constraint if exists public_listings_latitude_range_check,
   drop constraint if exists public_listings_longitude_range_check,
+  drop constraint if exists public_listings_location_pair_check,
   add constraint public_listings_latitude_range_check
     check (latitude is null or latitude between -90 and 90),
   add constraint public_listings_longitude_range_check

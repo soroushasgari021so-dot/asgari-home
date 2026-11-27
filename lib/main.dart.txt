@@ -1483,7 +1483,7 @@ class _MapLocationPickerDialogState extends State<MapLocationPickerDialog> {
         width: 560,
         height: 430,
         child: Column(children: [
-          const Text('برای تعیین محل دقیق، روی نقشه لمس کنید یا نشان را جابه‌جا کنید.'),
+          const Text('برای تعیین محل دقیق، نقطه موردنظر را روی نقشه لمس کنید.'),
           const SizedBox(height: 8),
           Expanded(child: FlutterMap(
             options: MapOptions(
@@ -2021,19 +2021,2318 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
       final ownerPhone = normalizeDigits(ownerPhoneController.text.trim());
       String? ownerId = existingOwnerId;
       if (ownerName.isNotEmpty || ownerPhone.isNotEmpty || ownerNotesController.text.trim().isNotEmpty) {
-        if (ownerName.isEmpty || ownerPhone.isEmpty) {
-          throw Exception('برای ثبت اطلاعات مالک، نام و شماره همراه هر دو الزامی است.');
+        final digitsOnlyPhone = ownerPhone.replaceAll(RegExp(r'[^0-9]'), '');
+        final nationalPhone = digitsOnlyPhone.startsWith('98') && digitsOnlyPhone.length == 12
+            ? '0' + digitsOnlyPhone.substring(2)
+            : digitsOnlyPhone;
+        if (ownerName.isEmpty || !RegExp(r'^09\d{9}
+      } else {
+        ownerId = null;
+      }
+      final latitude = parseNumber(latitudeController.text);
+      final longitude = parseNumber(longitudeController.text);
+      if ((latitude == null) != (longitude == null)) {
+        throw Exception('برای موقعیت ملک، طول و عرض جغرافیایی را کامل انتخاب کنید.');
+      }
+      if (latitude != null && (latitude < -90 || latitude > 90 || longitude! < -180 || longitude > 180)) {
+        throw Exception('مختصات جغرافیایی معتبر نیست.');
+      }
+
+      final data = <String, dynamic>{
+        'title': titleController.text.trim(),
+        'category': category,
+        'property_type': propertyType,
+        'parking_type': parkingType,
+        'elevator_status': elevatorStatus,
+        'storage_status': storageStatus,
+        'document_status': documentStatus,
+        'area': parseNumber(areaController.text),
+        'neighborhood': neighborhoodController.text.trim(),
+        'full_address': addressController.text.trim(),
+        'bedrooms': parseInteger(bedroomsController.text),
+        'floor_number': parseInteger(floorController.text),
+        'sale_price': parseNumber(salePriceController.text),
+        'deposit_amount': parseNumber(depositController.text),
+        'monthly_rent': parseNumber(rentController.text),
+        'display_price': displayPriceController.text.trim(),
+        'description': descriptionController.text.trim(),
+        'owner_id': ownerId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'is_published': published,
+        'image_urls': allImages,
+      };
+
+      if (widget.item == null) {
+        await client.from('public_listings').insert(data);
+      } else {
+        await client
+            .from('public_listings')
+            .update(data)
+            .eq('id', widget.item!['id'].toString());
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطا در ذخیره فایل یا تصاویر: $e')),
+        );
+        setState(() {
+          saving = false;
+        });
+      }
+    }
+  }
+
+  Widget textField(
+    String label,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool required = false,
+bool formatThousands = false,
+bool enabled = true,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+enabled: enabled,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        textDirection: TextDirection.rtl,
+        inputFormatters: formatThousands
+            ? [ThousandsSeparatorInputFormatter()]
+            : null,
+        decoration: InputDecoration(labelText: label),
+        validator: required
+            ? (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'این فیلد الزامی است.';
+                }
+                return null;
+              }
+            : null,
+      ),
+    );
+  }
+
+  Widget imageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            'تصاویر ملک',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: pickingImages || saving ? null : pickImages,
+            icon: pickingImages
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_photo_alternate),
+            label: Text(
+              pickingImages ? 'در حال انتخاب...' : 'انتخاب تصاویر از گالری',
+            ),
+          ),
+        ),
+        if (existingImages.isNotEmpty || newImages.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 105,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                ...existingImages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final url = entry.value;
+
+                  return imagePreview(
+                    Image.network(
+                      url,
+                      width: 105,
+                      height: 105,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image),
+                    ),
+                    () {
+                      setState(() {
+                        existingImages.removeAt(index);
+                      });
+                    },
+                  );
+                }),
+                ...newImages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final file = entry.value;
+
+                  return imagePreview(
+                    Image.file(
+                      File(file.path),
+                      width: 105,
+                      height: 105,
+                      fit: BoxFit.cover,
+                    ),
+                    () {
+                      setState(() {
+                        newImages.removeAt(index);
+                      });
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'تعداد تصاویر: ${existingImages.length + newImages.length}',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  Widget imagePreview(Widget image, VoidCallback onRemove) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 105,
+              height: 105,
+              child: image,
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: saving ? null : onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: Text(
+          widget.item == null ? 'ثبت فایل ملکی' : 'ویرایش فایل ملکی',
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  textField('عنوان فایل', titleController, required: true),
+                  DropdownButtonFormField<String>(
+                    initialValue: category,
+                    decoration: const InputDecoration(labelText: 'نوع معامله'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'فروش',
+                        child: Text('فروش'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'رهن و اجاره',
+                        child: Text('رهن و اجاره'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          category = value;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: propertyType,
+                    decoration: const InputDecoration(labelText: 'نوع ملک'),
+                    items: propertyTypes.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(type),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          propertyType = value;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: parkingType,
+                    decoration: const InputDecoration(
+                      labelText: 'وضعیت پارکینگ',
+                    ),
+                    items: parkingTypes.map((value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                parkingType = value;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: elevatorStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'وضعیت آسانسور',
+                    ),
+                    items: elevatorStatuses.map((value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                elevatorStatus = value;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: storageStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'وضعیت انباری',
+                    ),
+                    items: storageStatuses.map((value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                storageStatus = value;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: documentStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'وضعیت سند',
+                    ),
+                    items: documentStatuses.map((value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                documentStatus = value;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  textField(
+                    'متراژ',
+                    areaController,
+                    keyboardType: TextInputType.number,
+                  ),
+                  textField('محله', neighborhoodController),
+                  textField('آدرس کامل', addressController),
+                  const Divider(height: 24),
+                  const Align(alignment: Alignment.centerRight, child: Text('اطلاعات خصوصی مالک (فقط پنل مدیریت)', style: TextStyle(fontWeight: FontWeight.bold, color: gold))),
+                  const SizedBox(height: 10),
+                  textField('نام و نام خانوادگی مالک', ownerNameController),
+                  textField('شماره همراه مالک', ownerPhoneController, keyboardType: TextInputType.phone),
+                  textField('یادداشت هماهنگی با مالک', ownerNotesController, maxLines: 2),
+                  const Divider(height: 24),
+                  const Align(alignment: Alignment.centerRight, child: Text('موقعیت ملک روی نقشه', style: TextStyle(fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: saving ? null : () async {
+                      final initial = latitudeController.text.isNotEmpty && longitudeController.text.isNotEmpty
+                          ? LatLng(double.parse(latitudeController.text), double.parse(longitudeController.text))
+                          : const LatLng(34.1885, 48.3764);
+                      final selected = await showDialog<LatLng>(context: context, builder: (_) => MapLocationPickerDialog(initialLocation: initial));
+                      if (selected != null && mounted) setState(() {
+                        latitudeController.text = selected.latitude.toStringAsFixed(7);
+                        longitudeController.text = selected.longitude.toStringAsFixed(7);
+                      });
+                    },
+                    icon: const Icon(Icons.map_outlined),
+                    label: Text(latitudeController.text.isEmpty ? 'انتخاب موقعیت روی نقشه' : 'تغییر موقعیت انتخاب‌شده'),
+                  ),
+                  if (latitudeController.text.isNotEmpty && longitudeController.text.isNotEmpty)
+                    Text('مختصات ثبت‌شده: ${latitudeController.text}, ${longitudeController.text}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  textField(
+                    'تعداد اتاق خواب',
+                    bedroomsController,
+                    keyboardType: TextInputType.number,
+                  ),
+                  textField(
+                    'طبقه',
+                    floorController,
+                    keyboardType: TextInputType.number,
+                  ),
+                                    textField(
+                    'قیمت فروش (تومان)',
+                    salePriceController,
+                    keyboardType: TextInputType.number,
+                    formatThousands: true,
+                    enabled: category == 'فروش',
+                  ),
+                  textField(
+                    'مبلغ رهن (تومان)',
+                    depositController,
+                    keyboardType: TextInputType.number,
+                    formatThousands: true,
+                    enabled: category == 'رهن و اجاره',
+                  ),
+                  textField(
+                    'اجاره ماهانه (تومان)',
+                    rentController,
+                    keyboardType: TextInputType.number,
+                    formatThousands: true,
+                    enabled: category == 'رهن و اجاره',
+                  ),
+                  textField(
+                    'توضیحات ملک',
+                    descriptionController,
+                    maxLines: 4,
+                  ),
+                  imageSection(),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('انتشار آگهی برای عموم'),
+                    value: published,
+                    activeThumbColor: gold,
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            setState(() {
+                              published = value;
+                            });
+                          },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: saving
+                ? null
+                : () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: black,
+              foregroundColor: gold,
+            ),
+            onPressed: saving ? null : saveListing,
+            child: saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: gold,
+                    ),
+                  )
+                : const Text('ذخیره فایل'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// -------------------- CUSTOMER MANAGEMENT --------------------
+
+class CustomerManagementPage extends StatefulWidget {
+  const CustomerManagementPage({super.key});
+
+  @override
+  State<CustomerManagementPage> createState() =>
+      _CustomerManagementPageState();
+}
+
+class _CustomerManagementPageState extends State<CustomerManagementPage> {
+  late Future<List<Map<String, dynamic>>> customersFuture;
+  String searchText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    customersFuture = loadCustomers();
+  }
+
+  Future<List<Map<String, dynamic>>> loadCustomers() async {
+    final response = await Supabase.instance.client
+        .from('customers')
+        .select()
+        .order('created_at', ascending: false);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<void> refreshCustomers() async {
+    final future = loadCustomers();
+    setState(() {
+      customersFuture = future;
+    });
+    await future;
+  }
+
+  Future<void> openCustomerEditor(
+      [Map<String, dynamic>? customer]) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CustomerEditorDialog(customer: customer),
+    );
+
+    if (result == true && mounted) {
+      await refreshCustomers();
+    }
+  }
+
+  Future<void> deleteCustomer(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف مشتری'),
+        content: const Text(
+          'آیا از حذف اطلاعات این مشتری مطمئن هستید؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await Supabase.instance.client
+          .from('customers')
+          .delete()
+          .eq('id', id);
+
+      await refreshCustomers();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('مشتری حذف شد.')),
+        );
+      }
+    } catch (e) {
+      showMessage('خطا در حذف مشتری: $e');
+    }
+  }
+
+  void showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('مدیریت مشتریان'),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: black,
+          foregroundColor: gold,
+          onPressed: () => openCustomerEditor(),
+          icon: const Icon(Icons.person_add),
+          label: const Text('ثبت مشتری'),
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'جستجو با نام یا شماره تماس...',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    searchText = normalizeDigits(value.trim());
+                  });
+                },
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: customersFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: gold),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('دریافت مشتریان با خطا مواجه شد.'),
+                          TextButton(
+                            onPressed: refreshCustomers,
+                            child: const Text('تلاش مجدد'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final customers = snapshot.data ?? [];
+
+                  final filtered = customers.where((customer) {
+                    final name =
+                        (customer['full_name'] ?? '').toString();
+                    final phone = normalizeDigits(
+                      (customer['phone'] ?? '').toString(),
+                    );
+
+                    return searchText.isEmpty ||
+                        name.contains(searchText) ||
+                        phone.contains(searchText);
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return const Center(
+                      child: Text('مشتری‌ای ثبت نشده است.'),
+                    );
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: refreshCustomers,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(
+                          12, 4, 12, 90),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final customer = filtered[index];
+                        final id = customer['id'].toString();
+
+                        final name =
+                            customer['full_name']?.toString() ?? '';
+                        final phone =
+                            customer['phone']?.toString() ?? '';
+                        final demand =
+                            customer['demand']?.toString() ?? '';
+                        final budget =
+                            formatMoney(customer['budget']?.toString() ?? '');
+                        final status =
+                            customer['status']?.toString() ?? 'جدید';
+                        final propertyType =
+                            customer['property_type']?.toString() ?? '';
+                        final neighborhood =
+                            customer['neighborhood']?.toString() ?? '';
+                        final followUpRaw =
+                            customer['follow_up_date']?.toString() ?? '';
+                        final followUp = followUpRaw.isEmpty
+                            ? ''
+                            : formatJalaliDateText(followUpRaw);
+
+                        return Card(
+                          color: Theme.of(context).colorScheme.surface,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text('شماره تماس: $phone'),
+                                if (demand.isNotEmpty)
+                                  Text('نوع درخواست: $demand'),
+                                if (propertyType.isNotEmpty)
+                                  Text('نوع ملک: $propertyType'),
+                                if (budget.isNotEmpty && budget != 'null')
+                                  Text('بودجه: $budget تومان'),
+                                if (neighborhood.isNotEmpty)
+                                  Text('محله موردنظر: $neighborhood'),
+                                if (followUp.isNotEmpty &&
+                                    followUp != 'null')
+                                  Text('تاریخ پیگیری: $followUp'),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Text('وضعیت: '),
+                                    Expanded(
+                                      child: Text(
+                                        status,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'تماس',
+                                      onPressed: () async {
+                                        final uri = Uri(
+                                          scheme: 'tel',
+                                          path: phone,
+                                        );
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.phone,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'ویرایش',
+                                      onPressed: () =>
+                                          openCustomerEditor(customer),
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'حذف',
+                                      onPressed: () => deleteCustomer(id),
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+// -------------------- CUSTOMER EDITOR --------------------
+
+class CustomerEditorDialog extends StatefulWidget {
+  final Map<String, dynamic>? customer;
+
+  const CustomerEditorDialog({super.key, this.customer});
+
+  @override
+  State<CustomerEditorDialog> createState() =>
+      _CustomerEditorDialogState();
+}
+
+class _CustomerEditorDialogState extends State<CustomerEditorDialog> {
+  final formKey = GlobalKey<FormState>();
+
+  late final TextEditingController nameController;
+  late final TextEditingController phoneController;
+  late final TextEditingController demandController;
+  late final TextEditingController budgetController;
+  late final TextEditingController propertyTypeController;
+  late final TextEditingController neighborhoodController;
+  late final TextEditingController notesController;
+
+  String status = 'جدید';
+  DateTime? followUpDate;
+  bool saving = false;
+
+  final statuses = [
+    'جدید',
+    'در حال پیگیری',
+    'مشتری جدی',
+    'معامله انجام شد',
+    'بایگانی',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    final item = widget.customer ?? {};
+
+    nameController = TextEditingController(
+      text: item['full_name']?.toString() ?? '',
+    );
+    phoneController = TextEditingController(
+      text: item['phone']?.toString() ?? '',
+    );
+    demandController = TextEditingController(
+      text: item['demand']?.toString() ?? '',
+    );
+    budgetController = TextEditingController(
+      text: formatMoney(item['budget']?.toString() ?? ''),
+    );
+    propertyTypeController = TextEditingController(
+      text: item['property_type']?.toString() ?? '',
+    );
+    neighborhoodController = TextEditingController(
+      text: item['neighborhood']?.toString() ?? '',
+    );
+    notesController = TextEditingController(
+      text: item['notes']?.toString() ?? '',
+    );
+
+    final savedStatus = item['status']?.toString();
+    if (savedStatus != null && statuses.contains(savedStatus)) {
+      status = savedStatus;
+    }
+
+    final savedDate = item['follow_up_date']?.toString();
+    if (savedDate != null &&
+        savedDate.isNotEmpty &&
+        savedDate != 'null') {
+      followUpDate = DateTime.tryParse(savedDate);
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    demandController.dispose();
+    budgetController.dispose();
+    propertyTypeController.dispose();
+    neighborhoodController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> chooseFollowUpDate() async {
+    final now = DateTime.now();
+
+    final selected = await showPersianDatePicker(
+      context: context,
+      initialDate: followUpDate ?? now,
+      firstDate: DateTime(2020, 3, 20),
+      lastDate: DateTime(2100, 3, 20),
+      titleText: 'انتخاب تاریخ پیگیری',
+      cancelText: 'انصراف',
+      saveText: 'تأیید',
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        followUpDate = selected;
+      });
+    }
+  }
+
+  String formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  Future<void> saveCustomer() async {
+    if (!formKey.currentState!.validate()) return;
+
+    setState(() {
+      saving = true;
+    });
+
+    try {
+      final data = <String, dynamic>{
+        'full_name': nameController.text.trim(),
+        'phone': normalizeDigits(phoneController.text.trim()),
+        'demand': demandController.text.trim(),
+        'budget': parseNumber(budgetController.text),
+        'property_type': propertyTypeController.text.trim(),
+        'neighborhood': neighborhoodController.text.trim(),
+        'notes': notesController.text.trim(),
+        'status': status,
+        'follow_up_date': followUpDate == null
+            ? null
+            : formatDate(followUpDate!),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      final client = Supabase.instance.client;
+
+      if (widget.customer == null) {
+        await client.from('customers').insert(data);
+      } else {
+        await client
+            .from('customers')
+            .update(data)
+            .eq('id', widget.customer!['id'].toString());
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطا در ذخیره مشتری: $e')),
+        );
+        setState(() {
+          saving = false;
+        });
+      }
+    }
+  }
+
+  Widget field(
+    String label,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool required = false,
+    bool formatThousands = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        textDirection: TextDirection.rtl,
+        inputFormatters: formatThousands
+            ? [ThousandsSeparatorInputFormatter()]
+            : null,
+        decoration: InputDecoration(labelText: label),
+        validator: required
+            ? (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'این فیلد الزامی است.';
+                }
+                return null;
+              }
+            : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: Text(
+          widget.customer == null
+              ? 'ثبت مشتری جدید'
+              : 'ویرایش اطلاعات مشتری',
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  field(
+                    'نام و نام خانوادگی',
+                    nameController,
+                    required: true,
+                  ),
+                  field(
+                    'شماره تماس',
+                    phoneController,
+                    keyboardType: TextInputType.phone,
+                    required: true,
+                  ),
+                  field(
+                    'نوع درخواست (خرید، فروش، رهن یا اجاره)',
+                    demandController,
+                    required: true,
+                  ),
+                  field(
+                    'بودجه به تومان',
+                    budgetController,
+                    keyboardType: TextInputType.number,
+                    formatThousands: true,
+                  ),
+                  field('نوع ملک موردنظر', propertyTypeController),
+                  field('محله موردنظر', neighborhoodController),
+                  field(
+                    'توضیحات و جزئیات مشتری',
+                    notesController,
+                    maxLines: 3,
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: status,
+                    decoration: const InputDecoration(
+                      labelText: 'وضعیت مشتری',
+                    ),
+                    items: statuses.map((value) {
+                      return DropdownMenuItem(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                status = value;
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: saving ? null : chooseFollowUpDate,
+                      icon: const Icon(Icons.calendar_month),
+                      label: Text(
+                        followUpDate == null
+                            ? 'تعیین تاریخ پیگیری'
+                            : 'پیگیری: ${followUpDate!.toPersianDate()}',
+                      ),
+                    ),
+                  ),
+                  if (followUpDate != null)
+                    TextButton(
+                      onPressed: saving
+                          ? null
+                          : () {
+                              setState(() {
+                                followUpDate = null;
+                              });
+                            },
+                      child: const Text('پاک کردن تاریخ پیگیری'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: saving
+                ? null
+                : () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: black,
+              foregroundColor: gold,
+            ),
+            onPressed: saving ? null : saveCustomer,
+            child: saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: gold,
+                    ),
+                  )
+                : const Text('ذخیره مشتری'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// -------------------- CUSTOMER FOLLOW UP --------------------
+
+class CustomerFollowUpPage extends StatefulWidget {
+  const CustomerFollowUpPage({super.key});
+
+  @override
+  State<CustomerFollowUpPage> createState() =>
+      _CustomerFollowUpPageState();
+}
+
+class _CustomerFollowUpPageState extends State<CustomerFollowUpPage> {
+  late Future<List<Map<String, dynamic>>> customersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    customersFuture = loadFollowUps();
+  }
+
+  Future<List<Map<String, dynamic>>> loadFollowUps() async {
+    final response = await Supabase.instance.client
+        .from('customers')
+        .select()
+        .not('follow_up_date', 'is', null)
+        .order('follow_up_date', ascending: true);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<void> refreshFollowUps() async {
+    final future = loadFollowUps();
+
+    setState(() {
+      customersFuture = future;
+    });
+
+    await future;
+  }
+
+  DateTime? readDate(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString();
+    if (text.isEmpty || text == 'null') return null;
+
+    return DateTime.tryParse(text);
+  }
+
+  DateTime dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  Future<void> callCustomer(String phone) async {
+    final normalizedPhone = normalizeDigits(phone.trim());
+
+    if (normalizedPhone.isEmpty) {
+      showMessage('شماره تماس مشتری ثبت نشده است.');
+      return;
+    }
+
+    try {
+      final uri = Uri(
+        scheme: 'tel',
+        path: normalizedPhone,
+      );
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        showMessage('امکان برقراری تماس وجود ندارد.');
+      }
+    } catch (e) {
+      showMessage('خطا در باز کردن شماره تماس: $e');
+    }
+  }
+
+  void showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> editCustomer(
+    Map<String, dynamic> customer,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CustomerEditorDialog(
+        customer: customer,
+      ),
+    );
+
+    if (result == true && mounted) {
+      await refreshFollowUps();
+    }
+  }
+
+  Widget sectionTitle(
+    String title,
+    int count,
+    Color color,
+    IconData icon,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              count.toString(),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget customerCard(
+    Map<String, dynamic> customer,
+    Color color,
+    String label,
+  ) {
+    final name = customer['full_name']?.toString() ?? 'بدون نام';
+    final phone = customer['phone']?.toString() ?? '';
+    final demand = customer['demand']?.toString() ?? '';
+    final status = customer['status']?.toString() ?? 'جدید';
+    final followUpRaw =
+        customer['follow_up_date']?.toString() ?? '';
+    final followUp = followUpRaw.isEmpty
+        ? ''
+        : formatJalaliDateText(followUpRaw);
+
+    return Card(
+      color: Theme.of(context).colorScheme.surface,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: color.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('شماره تماس: $phone'),
+            if (demand.isNotEmpty)
+              Text('نوع درخواست: $demand'),
+            Text('وضعیت مشتری: $status'),
+            Text('تاریخ پیگیری: $followUp'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => callCustomer(phone),
+                    icon: const Icon(
+                      Icons.phone,
+                      color: Colors.green,
+                    ),
+                    label: const Text('تماس'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => editCustomer(customer),
+                    icon: const Icon(
+                      Icons.edit,
+                      color: Colors.blue,
+                    ),
+                    label: const Text('ویرایش'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget emptySection(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Colors.grey),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('یادآوری پیگیری مشتریان'),
+          actions: [
+            IconButton(
+              tooltip: 'به‌روزرسانی',
+              onPressed: refreshFollowUps,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: FutureBuilder<List<Map<String, dynamic>>>(
+          future: customersFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: gold),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 45,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'دریافت اطلاعات پیگیری با مشکل مواجه شد.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: refreshFollowUps,
+                        child: const Text('تلاش مجدد'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final customers = snapshot.data ?? [];
+
+            final today = dateOnly(DateTime.now());
+
+            final overdue = <Map<String, dynamic>>[];
+            final todayList = <Map<String, dynamic>>[];
+            final upcoming = <Map<String, dynamic>>[];
+
+            for (final customer in customers) {
+              final followUpDate =
+                  readDate(customer['follow_up_date']);
+
+              if (followUpDate == null) continue;
+
+              final date = dateOnly(followUpDate);
+
+              if (date.isBefore(today)) {
+                overdue.add(customer);
+              } else if (date.isAtSameMomentAs(today)) {
+                todayList.add(customer);
+              } else {
+                upcoming.add(customer);
+              }
+            }
+
+            if (customers.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: refreshFollowUps,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 180),
+                    Icon(
+                      Icons.notifications_none,
+                      size: 65,
+                      color: Colors.grey,
+                    ),
+                    SizedBox(height: 15),
+                    Center(
+                      child: Text(
+                        'هنوز هیچ تاریخ پیگیری برای مشتریان ثبت نشده است.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: refreshFollowUps,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: black,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active,
+                          color: gold,
+                          size: 35,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'برنامه پیگیری مشتریان',
+                          style: TextStyle(
+                            color: gold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: summaryItem(
+                                'عقب‌افتاده',
+                                overdue.length,
+                                Colors.redAccent,
+                              ),
+                            ),
+                            Expanded(
+                              child: summaryItem(
+                                'امروز',
+                                todayList.length,
+                                Colors.orangeAccent,
+                              ),
+                            ),
+                            Expanded(
+                              child: summaryItem(
+                                'آینده',
+                                upcoming.length,
+                                Colors.greenAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  sectionTitle(
+                    'پیگیری‌های عقب‌افتاده',
+                    overdue.length,
+                    Colors.red,
+                    Icons.warning_amber,
+                  ),
+                  if (overdue.isEmpty)
+                    emptySection('پیگیری عقب‌افتاده‌ای وجود ندارد.')
+                  else
+                    ...overdue.map(
+                      (customer) => customerCard(
+                        customer,
+                        Colors.red,
+                        'عقب‌افتاده',
+                      ),
+                    ),
+
+                  sectionTitle(
+                    'پیگیری‌های امروز',
+                    todayList.length,
+                    Colors.orange,
+                    Icons.today,
+                  ),
+                  if (todayList.isEmpty)
+                    emptySection('برای امروز پیگیری ثبت نشده است.')
+                  else
+                    ...todayList.map(
+                      (customer) => customerCard(
+                        customer,
+                        Colors.orange,
+                        'امروز',
+                      ),
+                    ),
+
+                  sectionTitle(
+                    'پیگیری‌های آینده',
+                    upcoming.length,
+                    Colors.green,
+                    Icons.event_available,
+                  ),
+                  if (upcoming.isEmpty)
+                    emptySection('پیگیری آینده‌ای ثبت نشده است.')
+                  else
+                    ...upcoming.map(
+                      (customer) => customerCard(
+                        customer,
+                        Colors.green,
+                        'آینده',
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget summaryItem(
+    String title,
+    int count,
+    Color color,
+  ) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: TextStyle(
+            color: color,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+// -------------------- CUSTOMER TOOLS --------------------
+
+class CustomerHomeContent extends StatefulWidget {
+  const CustomerHomeContent({super.key});
+
+  @override
+  State<CustomerHomeContent> createState() => _CustomerHomeContentState();
+}
+
+class _CustomerHomeContentState extends State<CustomerHomeContent> {
+
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      checkForAppUpdate();
+    });
+  }
+
+  bool isNewerVersion(String latest, String current) {
+    List<int> parseVersion(String version) {
+      return version
+          .replaceFirst(RegExp(r'^[vV]'), '')
+          .split('.')
+          .map((part) => int.tryParse(part) ?? 0)
+          .toList();
+    }
+
+    final latestParts = parseVersion(latest);
+    final currentParts = parseVersion(current);
+
+    for (int i = 0; i < 3; i++) {
+      final latestNumber =
+          i < latestParts.length ? latestParts[i] : 0;
+      final currentNumber =
+          i < currentParts.length ? currentParts[i] : 0;
+
+      if (latestNumber > currentNumber) return true;
+      if (latestNumber < currentNumber) return false;
+    }
+
+    return false;
+  }
+
+  Future<void> checkForAppUpdate() async {
+    final httpClient = HttpClient();
+
+    try {
+      // Read the installed version from Android package metadata. This stays
+      // in sync with the version in pubspec.yaml for every future release.
+      final packageInfo = await PackageInfo.fromPlatform();
+      final installedVersion = packageInfo.version.trim();
+      if (installedVersion.isEmpty) return;
+      final request = await httpClient
+          .getUrl(Uri.parse(
+              'https://api.github.com/repos/soroushasgari021so-dot/asgari-home/releases/latest'))
+          .timeout(const Duration(seconds: 15));
+
+      request.headers.set('User-Agent', 'ASGARI-HOME');
+      request.headers.set('Accept', 'application/vnd.github+json');
+
+      final response =
+          await request.close().timeout(const Duration(seconds: 15));
+
+if (response.statusCode != 200) {
+  debugPrint('UPDATE CHECK HTTP ERROR: ${response.statusCode}');
+  return;
+}
+      final responseBody = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 15));
+
+      final release = jsonDecode(responseBody);
+
+      if (release is! Map<String, dynamic>) return;
+      if (release['draft'] == true ||
+          release['prerelease'] == true) {
+        return;
+      }
+
+      final latestVersion = release['tag_name'] as String?;
+      if (latestVersion == null || latestVersion.isEmpty) return;
+
+      if (!isNewerVersion(latestVersion, installedVersion)) return;
+
+      final assets = release['assets'];
+      if (assets is! List) return;
+
+      String? downloadUrl;
+
+      for (final asset in assets) {
+        if (asset is Map &&
+            asset['name'] is String &&
+            (asset['name'] as String).toLowerCase().endsWith('.apk') &&
+            asset['browser_download_url'] is String) {
+          downloadUrl = asset['browser_download_url'] as String;
+          break;
+        }
+      }
+
+      if (downloadUrl == null || !mounted) return;
+
+      showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('نسخه جدید در دسترس است'),
+            content: Text(
+              'نسخه $latestVersion اپلیکیشن املاک عسگری منتشر شده است. '
+              'برای دریافت نسخه جدید روی دکمه دانلود بزنید.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('بعداً'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: gold,
+                  foregroundColor: black,
+                ),
+                onPressed: () async {
+                  Navigator.pop(dialogContext);
+
+                  final uri = Uri.tryParse(downloadUrl!);
+                  if (uri != null) {
+                    await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
+                child: const Text('دانلود نسخه جدید'),
+              ),
+            ],
+          ),
+        ),
+      );
+} catch (e) {
+  debugPrint('UPDATE CHECK FAILED: $e');
+      // در صورت قطع اینترنت یا خطا، برنامه بدون مشکل اجرا می‌شود.
+    } finally {
+      httpClient.close(force: true);
+    }
+  }
+  void openPage(Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  }
+
+  void showThemeModeDialog(BuildContext sheetContext) {
+    showDialog<void>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حالت نمایش برنامه'),
+        content: SegmentedButton<ThemeMode>(
+          segments: const [
+            ButtonSegment(
+              value: ThemeMode.system,
+              label: Text('مطابق گوشی'),
+              icon: Icon(Icons.phone_android),
+            ),
+            ButtonSegment(
+              value: ThemeMode.light,
+              label: Text('روشن'),
+              icon: Icon(Icons.light_mode_outlined),
+            ),
+            ButtonSegment(
+              value: ThemeMode.dark,
+              label: Text('تاریک'),
+              icon: Icon(Icons.dark_mode_outlined),
+            ),
+          ],
+          selected: {currentAppThemeMode},
+          onSelectionChanged: (selection) {
+            final selected = selection.first;
+            Navigator.pop(dialogContext);
+            appThemeModeChanged(selected);
+          },
+        ),
+      ),
+    );
+  }
+
+  void showTools() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+            decoration: BoxDecoration(
+              color: Theme.of(sheetContext).colorScheme.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(top: BorderSide(color: gold, width: 2)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Row(
+                  children: [
+                    Icon(Icons.grid_view_rounded, color: gold, size: 25),
+                    SizedBox(width: 9),
+                    Text('ابزارهای کاربردی مشتریان',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: .95,
+                  children: [
+                    _ToolTile(icon: Icons.calculate, title: 'تبدیل رهن و اجاره', onTap: () { Navigator.pop(sheetContext); openPage(const RentConvertPage()); }),
+                    _ToolTile(icon: Icons.assignment_ind, title: 'ثبت درخواست ملک', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyRequestPage()); }),
+                    _ToolTile(icon: Icons.apartment, title: 'مشارکت در ساخت', onTap: () { Navigator.pop(sheetContext); openPage(const ConstructionCalculatorPage()); }),
+                    _ToolTile(icon: Icons.map_outlined, title: 'نقشه املاک نهاوند', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyMapPage()); }),
+                    _ToolTile(icon: Icons.brightness_6_outlined, title: 'حالت روشن / تاریک', onTap: () { Navigator.pop(sheetContext); showThemeModeDialog(context); }),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
+              decoration: const BoxDecoration(
+                color: black,
+                border: Border(bottom: BorderSide(color: gold, width: 2)),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/asgari_logo.png',
+                      width: 54,
+                      height: 54,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('املاک عسگری', style: TextStyle(color: gold, fontSize: 20, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 4),
+                        Text('به املاک عسگری خوش آمدید، مشاور ملکی شما در نهاوند',
+                            style: TextStyle(color: Colors.white, fontSize: 11.5), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'مدیریت',
+                    icon: const Icon(Icons.admin_panel_settings_outlined, color: gold),
+                    onPressed: () => openPage(const AdminGate()),
+                  ),
+                ],
+              ),
+            ),
+            const Expanded(child: PublicListings()),
+          ],
+        ),
+        Positioned(
+          right: 14,
+          bottom: 14,
+          child: Material(
+            color: black,
+            elevation: 8,
+            shape: const CircleBorder(side: BorderSide(color: gold, width: 2)),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: showTools,
+              child: const SizedBox(
+                width: 62,
+                height: 62,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.build_circle_outlined, color: gold, size: 25),
+                    SizedBox(height: 1),
+                    Text('ابزار', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  const _ToolTile({required this.icon, required this.title, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(14),
+    child: Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: gold.withValues(alpha: .65)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: gold, size: 31),
+          const SizedBox(height: 8),
+          Text(title, textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    ),
+  );
+}
+
+class RentConvertPage extends StatefulWidget {
+  final num? initialDeposit;
+  final num? initialRent;
+  const RentConvertPage({super.key, this.initialDeposit, this.initialRent});
+  @override
+  State<RentConvertPage> createState() => _RentConvertPageState();
+}
+class _RentConvertPageState extends State<RentConvertPage> {
+  final deposit = TextEditingController();
+  final rent = TextEditingController();
+  final rate = TextEditingController(text: '۳٬۰۰۰٬۰۰۰');
+  num? equivalent;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialDeposit != null) deposit.text = formatMoney(widget.initialDeposit.toString());
+    if (widget.initialRent != null) rent.text = formatMoney(widget.initialRent.toString());
+  }
+  @override
+  void dispose() { deposit.dispose(); rent.dispose(); rate.dispose(); super.dispose(); }
+  num? n(TextEditingController c) => parseNumber(c.text.replaceAll('٬','').replaceAll(',',''));
+  void calculate() {
+    final d=n(deposit) ?? 0, r=n(rent) ?? 0, k=n(rate);
+    if (k == null || k <= 0) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نرخ تبدیل معتبر وارد کنید.'))); return; }
+    setState(() => equivalent = d + (r * 1000000 / k));
+  }
+  @override
+  Widget build(BuildContext context) => Directionality(textDirection: TextDirection.rtl, child: Scaffold(
+    appBar: AppBar(title: const Text('ماشین‌حساب رهن و اجاره')),
+    body: ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('مبالغ را به تومان وارد کنید. نرخ تبدیل، مبلغ رهن معادل یک میلیون تومان اجاره ماهانه است.'), const SizedBox(height: 14),
+      TextField(controller: deposit, keyboardType: TextInputType.number, inputFormatters: [ThousandsSeparatorInputFormatter()], decoration: const InputDecoration(labelText: 'مبلغ رهن (تومان)')),
+      const SizedBox(height: 12), TextField(controller: rent, keyboardType: TextInputType.number, inputFormatters: [ThousandsSeparatorInputFormatter()], decoration: const InputDecoration(labelText: 'اجاره ماهانه (تومان)')),
+      const SizedBox(height: 12), TextField(controller: rate, keyboardType: TextInputType.number, inputFormatters: [ThousandsSeparatorInputFormatter()], decoration: const InputDecoration(labelText: 'نرخ تبدیل؛ رهن معادل یک میلیون اجاره')),
+      const SizedBox(height: 16), FilledButton(style: FilledButton.styleFrom(backgroundColor: black, foregroundColor: gold), onPressed: calculate, child: const Text('محاسبه معادل رهن کامل')),
+      if (equivalent != null) Card(child: Padding(padding: const EdgeInsets.all(16), child: Text('رهن معادل: ${formatMoney(equivalent!.round().toString())} تومان', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
+      const Text('توجه: نرخ تبدیل قابل تنظیم است و نتیجه، برآورد توافقی بازار محسوب می‌شود.'),
+    ])));
+}
+
+class PropertyRequestPage extends StatefulWidget {
+  const PropertyRequestPage({super.key});
+  @override
+  State<PropertyRequestPage> createState() => _PropertyRequestPageState();
+}
+class _PropertyRequestPageState extends State<PropertyRequestPage> {
+  final name = TextEditingController(), phone = TextEditingController();
+  final budget = TextEditingController(), area = TextEditingController();
+  final details = TextEditingController(), deposit = TextEditingController();
+  final rent = TextEditingController(), floor = TextEditingController();
+  String propertyType = 'آپارتمان', parkingStatus = 'فرقی ندارد';
+  String elevatorStatus = 'فرقی ندارد', storageStatus = 'فرقی ندارد';
+  String category = 'خرید';
+  bool sending = false;
+  bool get isRental => category == 'رهن و اجاره';
+
+  @override
+  void dispose() {
+    for (final c in [name, phone, budget, area, details, deposit, rent, floor]) { c.dispose(); }
+    super.dispose();
+  }
+
+  num? readNumber(TextEditingController c) {
+    final value = normalizeDigits(c.text).replaceAll('٬', '').replaceAll(',', '').trim();
+    return value.isEmpty ? null : parseNumber(value);
+  }
+
+  Future<void> submit() async {
+    if (name.text.trim().isEmpty || phone.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('نام و شماره تماس الزامی است.')));
+      return;
+    }
+    if (normalizeDigits(phone.text.trim()).length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('شماره تماس معتبر وارد کنید.')));
+      return;
+    }
+    if (isRental && readNumber(deposit) == null && readNumber(rent) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مبلغ رهن یا اجاره را وارد کنید.')));
+      return;
+    }
+    setState(() => sending = true);
+    try {
+      await Supabase.instance.client.from('property_requests').insert({
+        'customer_name': name.text.trim(),
+        'phone': normalizeDigits(phone.text.trim()),
+        'request_type': category,
+        'budget': isRental ? null : readNumber(budget),
+        'area': readNumber(area),
+        'property_type': propertyType,
+        'deposit_amount': isRental ? readNumber(deposit) : null,
+        'monthly_rent': isRental ? readNumber(rent) : null,
+        'floor_number': int.tryParse(normalizeDigits(floor.text.trim())),
+        'parking_status': parkingStatus,
+        'elevator_status': elevatorStatus,
+        'storage_status': storageStatus,
+        'details': details.text.trim(),
+        'status': 'جدید',
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('درخواست شما با موفقیت ثبت و برای بررسی ارسال شد.')));
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ثبت درخواست انجام نشد: $e')));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  Widget dropdown(String label, String value, List<String> options, ValueChanged<String?> onChanged) =>
+      DropdownButtonFormField<String>(
+        initialValue: value,
+        decoration: InputDecoration(labelText: label),
+        items: options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: onChanged,
+      );
+
+  Widget field(
+    TextEditingController c,
+    String label, {
+    bool money = false,
+    bool decimal = false,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+  }) =>
+      TextField(
+        controller: c,
+        maxLines: maxLines,
+        keyboardType: keyboardType ??
+            (maxLines > 1
+                ? TextInputType.multiline
+                : TextInputType.numberWithOptions(decimal: decimal)),
+        inputFormatters: money ? [ThousandsSeparatorInputFormatter()] : [],
+        decoration: InputDecoration(labelText: label),
+      );
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      appBar: AppBar(title: const Text('ثبت درخواست ملک')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('مشخصات و شرایط ملک موردنظر را وارد کنید تا کارشناسان املاک عسگری با شما تماس بگیرند.', style: TextStyle(height: 1.7)),
+        const SizedBox(height: 14),
+        field(
+          name,
+          'نام و نام خانوادگی',
+          keyboardType: TextInputType.text,
+        ),
+        const SizedBox(height: 10),
+        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'شماره تماس')),
+        const SizedBox(height: 10),
+        dropdown('نوع درخواست', category, const ['خرید', 'فروش', 'رهن و اجاره'], (v) { if (v != null) setState(() => category = v); }),
+        const SizedBox(height: 10),
+        if (!isRental) field(budget, 'بودجه یا قیمت موردنظر (تومان)', money: true)
+        else ...[
+          field(deposit, 'مبلغ رهن (تومان)', money: true),
+          const SizedBox(height: 10),
+          field(rent, 'اجاره ماهانه (تومان)', money: true),
+        ],
+        const SizedBox(height: 10),
+        field(area, 'متراژ موردنظر (مترمربع)', decimal: true),
+        const SizedBox(height: 10),
+        dropdown('نوع ملک', propertyType, const ['ویلایی', 'آپارتمان', 'زمین', 'باغ'], (v) { if (v != null) setState(() => propertyType = v); }),
+        const SizedBox(height: 10),
+        field(floor, 'طبقه (اختیاری)'),
+        const SizedBox(height: 10),
+        dropdown('پارکینگ', parkingStatus, const ['فرقی ندارد', 'دارد', 'ندارد'], (v) { if (v != null) setState(() => parkingStatus = v); }),
+        const SizedBox(height: 10),
+        dropdown('آسانسور', elevatorStatus, const ['فرقی ندارد', 'دارد', 'ندارد'], (v) { if (v != null) setState(() => elevatorStatus = v); }),
+        const SizedBox(height: 10),
+        dropdown('انباری', storageStatus, const ['فرقی ندارد', 'دارد', 'ندارد'], (v) { if (v != null) setState(() => storageStatus = v); }),
+        const SizedBox(height: 10),
+        field(details, 'توضیحات و امکانات دلخواه (اختیاری)', maxLines: 4),
+        const SizedBox(height: 18),
+        SizedBox(height: 50, child: FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: black, foregroundColor: gold),
+          onPressed: sending ? null : submit,
+          child: sending ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: gold)) : const Text('ارسال درخواست'),
+        )),
+      ]),
+    ),
+  );
+}
+
+class ConstructionCalculatorPage extends StatefulWidget {
+  const ConstructionCalculatorPage({super.key});
+  @override
+  State<ConstructionCalculatorPage> createState()=>_ConstructionCalculatorPageState();
+}
+class _ConstructionCalculatorPageState extends State<ConstructionCalculatorPage> {
+  int method=0;
+  final ownerPercent=TextEditingController(text:'۵۰'), builderPercent=TextEditingController(text:'۵۰');
+  final ownerArea=TextEditingController(), builderArea=TextEditingController(), totalArea=TextEditingController();
+  final unitCount=TextEditingController(), ownerUnits=TextEditingController();
+  final buildingPrice=TextEditingController(), buildCost=TextEditingController(), extraCost=TextEditingController();
+  String distribution='متراژ';
+  String result='';
+  @override
+  void dispose(){ for(final c in [ownerPercent,builderPercent,ownerArea,builderArea,totalArea,unitCount,ownerUnits,buildingPrice,buildCost,extraCost]){c.dispose();} super.dispose(); }
+  num val(TextEditingController c)=>parseNumber(normalizeDigits(c.text).replaceAll('٬','').replaceAll(',',''))??0;
+  void calculate(){
+    final op=val(ownerPercent), bp=val(builderPercent);
+    if(op<0||bp<0||(op+bp-100).abs()>0.001){setState(()=>result='مجموع درصد مالک و سازنده باید دقیقاً ۱۰۰ باشد.');return;}
+    if(method==0){
+      if(distribution=='متراژ'){
+        final total=val(totalArea); if(total<=0){setState(()=>result='متراژ کل را وارد کنید.');return;}
+        setState(()=>result='سهم مالک: ${(total*op/100).toStringAsFixed(2)} مترمربع\nسهم سازنده: ${(total*bp/100).toStringAsFixed(2)} مترمربع');
+      } else {
+        final total=val(unitCount); if(total<=0){setState(()=>result='تعداد کل واحدها را وارد کنید.');return;}
+        setState(()=>result='سهم مالک: ${(total*op/100).toStringAsFixed(2)} واحد\nسهم سازنده: ${(total*bp/100).toStringAsFixed(2)} واحد');
+      }
+    } else {
+      final area=val(totalArea), price=val(buildingPrice), cost=val(buildCost)*area+val(extraCost);
+      final gross=area*price, net=gross-cost;
+      if(area<=0||price<=0||cost<0||net<0){setState(()=>result='متراژ و ارزش روز را وارد کنید و مطمئن شوید هزینه ساخت از ارزش کل بیشتر نیست.');return;}
+      setState(()=>result='ارزش کل ساختمان: ${formatMoney(gross.round().toString())} تومان\nهزینه کل ساخت: ${formatMoney(cost.round().toString())} تومان\nارزش خالص قابل تقسیم: ${formatMoney(net.round().toString())} تومان\nسهم مالک: ${formatMoney((net*op/100).round().toString())} تومان\nسهم سازنده: ${formatMoney((net*bp/100).round().toString())} تومان');
+    }
+  }
+  Widget field(TextEditingController c,String label,{bool money=false})=>Padding(padding:const EdgeInsets.only(bottom:10),child:TextField(controller:c,keyboardType:const TextInputType.numberWithOptions(decimal:true),inputFormatters:money?[ThousandsSeparatorInputFormatter()]:[],decoration:InputDecoration(labelText:label)));
+  @override
+  Widget build(BuildContext context)=>Directionality(textDirection:TextDirection.rtl,child:Scaffold(appBar:AppBar(title:const Text('ماشین‌حساب مشارکت در ساخت')),body:ListView(padding:const EdgeInsets.all(16),children:[
+    const Text('روش محاسبه را انتخاب کنید.'), const SizedBox(height:8), SegmentedButton<int>(segments:const [ButtonSegment(value:0,label:Text('درصد توافقی')),ButtonSegment(value:1,label:Text('ارزش و هزینه ساخت'))],selected:{method},onSelectionChanged:(s){setState((){method=s.first;result='';});}),
+    const SizedBox(height:14),field(ownerPercent,'درصد سهم مالک'),field(builderPercent,'درصد سهم سازنده'),
+    if(method==0)...[
+      DropdownButtonFormField<String>(initialValue:distribution,decoration:const InputDecoration(labelText:'نحوه تقسیم'),items:['متراژ','تعداد واحد'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v){if(v!=null)setState(()=>distribution=v);}),
+      const SizedBox(height:10),field(distribution=='متراژ'?totalArea:unitCount,distribution=='متراژ'?'مجموع متراژ قابل تقسیم':'تعداد کل واحدها'),
+    ] else ...[
+      field(totalArea,'مجموع متراژ ساخته‌شده (مترمربع)'),field(buildingPrice,'ارزش روز هر مترمربع ساختمان تکمیل‌شده (تومان)',money:true),field(buildCost,'هزینه ساخت هر مترمربع (تومان)',money:true),field(extraCost,'هزینه‌های جانبی کل پروژه (تومان)',money:true),
+      Text('فرمول: ابتدا هزینه کل ساخت از ارزش کل ساختمان کسر می‌شود؛ سپس ارزش خالص طبق درصد توافق تقسیم می‌شود.',style:TextStyle(fontSize:12,color:Theme.of(context).colorScheme.onSurfaceVariant)),
+    ],
+    const SizedBox(height:14),FilledButton(style:FilledButton.styleFrom(backgroundColor:black,foregroundColor:gold),onPressed:calculate,child:const Text('محاسبه سهم طرفین')),
+    if(result.isNotEmpty)Card(child:Padding(padding:const EdgeInsets.all(14),child:Text(result,style:const TextStyle(height:1.8,fontWeight:FontWeight.w600)))),
+    Text('نتایج تقریبی هستند و جایگزین توافق و بررسی کارشناسی قرارداد مشارکت نیستند.',style:TextStyle(fontSize:11,color:Theme.of(context).colorScheme.onSurfaceVariant)),
+  ])));
+}
+
+class PropertyRequestsAdminPage extends StatefulWidget {
+  const PropertyRequestsAdminPage({super.key});
+  @override
+  State<PropertyRequestsAdminPage> createState() => _PropertyRequestsAdminPageState();
+}
+class _PropertyRequestsAdminPageState extends State<PropertyRequestsAdminPage> {
+  late Future<List<Map<String, dynamic>>> future;
+  bool showArchived = false;
+  @override
+  void initState() { super.initState(); future = load(); }
+  Future<List<Map<String, dynamic>>> load() async {
+    final data = await Supabase.instance.client.from('property_requests').select().order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
+  Future<void> refresh() async { final next = load(); setState(() => future = next); await next; }
+
+  Future<void> updateStatus(String id, String status) async {
+    try {
+      await Supabase.instance.client.from('property_requests').update({'status': status}).eq('id', id);
+      await refresh();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(status == 'انجام شد' ? 'درخواست به بایگانی منتقل شد.' : 'وضعیت درخواست به‌روزرسانی شد.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تغییر وضعیت انجام نشد: $e')));
+    }
+  }
+
+  Widget requestCard(Map<String, dynamic> x) {
+    final id = x['id'].toString(), status = (x['status'] ?? 'جدید').toString();
+    return Card(margin: const EdgeInsets.only(bottom: 10), child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Expanded(child: Text((x['customer_name'] ?? 'بدون نام').toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))), Chip(label: Text(status), visualDensity: VisualDensity.compact)]),
+        Text('نوع درخواست: ${x['request_type'] ?? '-'}'),
+        Text('تماس: ${x['phone'] ?? '-'}'),
+        if (x['property_type'] != null) Text('نوع ملک: ${x['property_type']}'),
+        if (x['budget'] != null) Text('بودجه/قیمت: ${formatMoney(x['budget'].toString())} تومان'),
+        if (x['deposit_amount'] != null) Text('رهن: ${formatMoney(x['deposit_amount'].toString())} تومان'),
+        if (x['monthly_rent'] != null) Text('اجاره ماهانه: ${formatMoney(x['monthly_rent'].toString())} تومان'),
+        if (x['area'] != null) Text('متراژ: ${x['area']} متر'),
+        if (x['floor_number'] != null) Text('طبقه: ${x['floor_number']}'),
+        Text('پارکینگ: ${x['parking_status'] ?? 'نامشخص'} | آسانسور: ${x['elevator_status'] ?? 'نامشخص'} | انباری: ${x['storage_status'] ?? 'نامشخص'}'),
+        if ((x['details'] ?? '').toString().trim().isNotEmpty) Text('توضیحات: ${x['details']}'),
+        const SizedBox(height: 8),
+        Row(children: [
+          const Text('وضعیت:'),
+          const SizedBox(width: 8),
+          Expanded(child: DropdownButton<String>(
+            isExpanded: true,
+            value: const ['جدید', 'در حال پیگیری', 'انجام شد'].contains(status) ? status : 'جدید',
+            items: const ['جدید', 'در حال پیگیری', 'انجام شد'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: (v) { if (v != null && v != status) updateStatus(id, v); },
+          )),
+        ]),
+      ]),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      appBar: AppBar(title: Text(showArchived ? 'بایگانی درخواست‌ها' : 'درخواست‌های ملک'), actions: [IconButton(onPressed: refresh, icon: const Icon(Icons.refresh))]),
+      body: Column(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(12, 12, 12, 4), child: SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, icon: Icon(Icons.inbox_outlined), label: Text('درخواست‌های فعال')),
+            ButtonSegment(value: true, icon: Icon(Icons.archive_outlined), label: Text('بایگانی')),
+          ],
+          selected: {showArchived},
+          onSelectionChanged: (selection) => setState(() => showArchived = selection.first),
+        )),
+        Expanded(child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snapshot.hasError) return Center(child: Text('خطا در دریافت درخواست‌ها: ${snapshot.error}'));
+            final all = snapshot.data ?? [];
+            final items = all.where((x) => showArchived ? x['status'] == 'انجام شد' : x['status'] != 'انجام شد').toList();
+            if (items.isEmpty) return Center(child: Text(showArchived ? 'درخواست بایگانی‌شده‌ای وجود ندارد.' : 'درخواست فعالی ثبت نشده است.'));
+            return RefreshIndicator(onRefresh: refresh, child: ListView.builder(
+              padding: const EdgeInsets.all(12), itemCount: items.length,
+              itemBuilder: (context, index) => requestCard(items[index]),
+            ));
+          },
+        )),
+      ]),
+    ),
+  );
+}
+).hasMatch(nationalPhone)) {
+          throw Exception('نام مالک و شماره همراه معتبر ۱۱ رقمی (09...) الزامی است.');
         }
         final ownerPayload = <String, dynamic>{
           'full_name': ownerName,
-          'phone': ownerPhone,
+          'phone': nationalPhone,
           'notes': ownerNotesController.text.trim(),
         };
         if (ownerId != null && ownerId!.isNotEmpty) {
           await client.from('owners').update(ownerPayload).eq('id', ownerId!);
         } else {
-          final createdOwner = await client.from('owners').insert(ownerPayload).select('id').single();
-          ownerId = createdOwner['id'].toString();
+          final matchingOwner = await client.from('owners').select('id').eq('phone', nationalPhone).maybeSingle();
+          if (matchingOwner != null) {
+            ownerId = matchingOwner['id'].toString();
+            await client.from('owners').update(ownerPayload).eq('id', ownerId!);
+          } else {
+            final createdOwner = await client.from('owners').insert(ownerPayload).select('id').single();
+            ownerId = createdOwner['id'].toString();
+          }
         }
       } else {
         ownerId = null;
