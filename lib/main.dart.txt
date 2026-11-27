@@ -1610,7 +1610,9 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
             final markers = items.map((item) {
               final lat = double.tryParse(item['latitude'].toString());
               final lng = double.tryParse(item['longitude'].toString());
-              if (lat == null || lng == null) return null;
+              if (lat == null || lng == null) {
+                return null;
+              }
               return Marker(
                 point: LatLng(lat, lng),
                 width: 48,
