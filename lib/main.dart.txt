@@ -228,6 +228,7 @@ class PublicListings extends StatefulWidget {
 
 class _PublicListingsState extends State<PublicListings> {
   late Future<List<Map<String, dynamic>>> listingsFuture;
+  final TextEditingController _searchController = TextEditingController();
 
   String searchText = '';
   String selectedCategory = 'همه';
@@ -236,6 +237,12 @@ class _PublicListingsState extends State<PublicListings> {
   void initState() {
     super.initState();
     listingsFuture = loadListings();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<List<Map<String, dynamic>>> loadListings() async {
@@ -263,6 +270,7 @@ class _PublicListingsState extends State<PublicListings> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: TextField(
+            controller: _searchController,
             textDirection: TextDirection.rtl,
             decoration: const InputDecoration(
               hintText: 'جستجوی ملک یا محله...',
@@ -419,6 +427,7 @@ class _PublicListingsState extends State<PublicListings> {
             ] else
               OutlinedButton.icon(
                 onPressed: () {
+                  _searchController.clear();
                   setState(() {
                     searchText = '';
                     selectedCategory = 'همه';
