@@ -1601,11 +1601,15 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
         body: FutureBuilder<List<Map<String, dynamic>>>(
           future: listingsFuture,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: gold));
-            if (snapshot.hasError) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: gold));
+            }
+            if (snapshot.hasError) {
+              return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Text('دریافت موقعیت آگهی‌ها ناموفق بود.'),
               TextButton(onPressed: () => setState(() => listingsFuture = loadMappedListings()), child: const Text('تلاش مجدد')),
-            ]));
+              ]));
+            }
             final items = snapshot.data ?? [];
             final markers = items.map((item) {
               final lat = double.tryParse(item['latitude'].toString());
