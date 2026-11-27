@@ -1492,7 +1492,11 @@ class _MapLocationPickerDialogState extends State<MapLocationPickerDialog> {
               onTap: (_, point) => setState(() => selected = point),
             ),
             children: [
-              TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // Identify the app correctly to comply with OSM tile usage policy.
+                userAgentPackageName: 'com.example.asgari_home',
+              ),
               MarkerLayer(markers: [Marker(
                 point: selected,
                 width: 48,
@@ -1631,7 +1635,11 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
               FlutterMap(
                 options: MapOptions(initialCenter: center, initialZoom: focus == null ? 13 : 16),
                 children: [
-                  TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                  TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // Identify the app correctly to comply with OSM tile usage policy.
+                userAgentPackageName: 'com.example.asgari_home',
+              ),
                   MarkerLayer(markers: markers),
                   const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
                 ],
