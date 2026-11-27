@@ -38,6 +38,29 @@ using ((select private.is_admin()));
 drop policy if exists "Admins manage customers" on public.customers;
 
 
+-- properties: two identical ALL policies were both granted to authenticated.
+drop policy if exists "admins_manage_properties" on public.properties;
+
+
+-- property_requests: use the same centralized admin predicate and init-plan
+-- optimization instead of evaluating auth.uid() in a correlated EXISTS.
+drop policy if exists "Admins can view property requests" on public.property_requests;
+drop policy if exists "Admins can update property requests" on public.property_requests;
+
+create policy "property_requests_select_admin"
+on public.property_requests
+for select
+to authenticated
+using ((select private.is_admin()));
+
+create policy "property_requests_update_admin"
+on public.property_requests
+for update
+to authenticated
+using ((select private.is_admin()))
+with check ((select private.is_admin()));
+
+
 -- public_listings: split SELECT by role. This avoids invoking a private-schema
 -- helper for anon users and avoids auth.role(), which is deprecated.
 drop policy if exists "Admins can manage listings" on public.public_listings;
