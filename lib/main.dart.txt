@@ -1530,10 +1530,13 @@ class PropertyMapPage extends StatefulWidget {
 
 class _PropertyMapPageState extends State<PropertyMapPage> {
   late Future<List<Map<String, dynamic>>> listingsFuture;
+  final MapController _mapController = MapController();
+  late double _currentZoom;
 
   @override
   void initState() {
     super.initState();
+    _currentZoom = widget.focusListing == null ? 13 : 16;
     listingsFuture = loadMappedListings();
   }
 
@@ -1555,6 +1558,22 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
     }
     final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _moveToCenter(LatLng center, {double? zoom}) {
+    final nextZoom = (zoom ?? _currentZoom).clamp(3.0, 19.0).toDouble();
+    _currentZoom = nextZoom;
+    _mapController.move(center, nextZoom);
+  }
+
+  Future<void> _copyCoordinates(Map<String, dynamic> listing) async {
+    final lat = listing['latitude'].toString();
+    final lng = listing['longitude'].toString();
+    await Clipboard.setData(ClipboardData(text: '$lat, $lng'));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('مختصات ملک کپی شد')),
+    );
   }
 
   void showListing(Map<String, dynamic> listing) {
@@ -1598,10 +1617,21 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
     final center = focus != null && focus['latitude'] != null && focus['longitude'] != null
         ? LatLng(double.parse(focus['latitude'].toString()), double.parse(focus['longitude'].toString()))
         : nahavandMapCenter;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: Text(focus == null ? 'نقشه املاک نهاوند' : 'موقعیت ملک')),
+        appBar: AppBar(
+          title: Text(focus == null ? 'نقشه' : 'موقعیت ملک'),
+          actions: [
+            if (focus == null)
+              IconButton(
+                tooltip: 'بارگذاری مجدد آگهی‌ها',
+                onPressed: () => setState(() => listingsFuture = loadMappedListings()),
+                icon: const Icon(Icons.refresh),
+              ),
+          ],
+        ),
         body: FutureBuilder<List<Map<String, dynamic>>>(
           future: listingsFuture,
           builder: (context, snapshot) {
@@ -1610,58 +1640,180 @@ class _PropertyMapPageState extends State<PropertyMapPage> {
             }
             if (snapshot.hasError) {
               return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('دریافت موقعیت آگهی‌ها ناموفق بود.'),
-              TextButton(onPressed: () => setState(() => listingsFuture = loadMappedListings()), child: const Text('تلاش مجدد')),
+                const Icon(Icons.map_outlined, size: 48, color: gold),
+                const SizedBox(height: 12),
+                const Text('دریافت موقعیت آگهی‌ها ناموفق بود.'),
+                TextButton(
+                  onPressed: () => setState(() => listingsFuture = loadMappedListings()),
+                  child: const Text('تلاش مجدد'),
+                ),
               ]));
             }
-            final items = snapshot.data ?? [];
+
+            final allItems = snapshot.data ?? [];
+            // When opened from a listing, show only that listing's marker.
+            final items = focus == null
+                ? allItems
+                : allItems.where((item) => item['id'].toString() == focus['id'].toString()).toList();
+
             final markers = items.map((item) {
               final lat = double.tryParse(item['latitude'].toString());
               final lng = double.tryParse(item['longitude'].toString());
               if (lat == null || lng == null) {
                 return null;
               }
+              final isFocused = focus != null && item['id'].toString() == focus['id'].toString();
               return Marker(
                 point: LatLng(lat, lng),
-                width: 48,
-                height: 52,
+                width: isFocused ? 62 : 50,
+                height: isFocused ? 66 : 54,
                 child: GestureDetector(
                   onTap: () => showListing(item),
-                  child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
+                  child: Icon(
+                    Icons.location_pin,
+                    color: isFocused ? gold : const Color(0xFFD84343),
+                    size: isFocused ? 58 : 46,
+                    shadows: const [Shadow(color: Colors.black54, blurRadius: 5, offset: Offset(0, 2))],
+                  ),
                 ),
               );
             }).whereType<Marker>().toList();
+
             return Stack(children: [
               FlutterMap(
-                options: MapOptions(initialCenter: center, initialZoom: focus == null ? 13 : 16),
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: _currentZoom,
+                  onPositionChanged: (camera, hasGesture) {
+                    _currentZoom = camera.zoom;
+                  },
+                ),
                 children: [
                   TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                // Identify the app correctly to comply with OSM tile usage policy.
-                userAgentPackageName: 'com.example.asgari_home',
-              ),
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    // Identify the app correctly to comply with OSM tile usage policy.
+                    userAgentPackageName: 'com.example.asgari_home',
+                  ),
                   MarkerLayer(markers: markers),
-                  const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
+                  const RichAttributionWidget(
+                    attributions: [TextSourceAttribution('© OpenStreetMap contributors')],
+                  ),
                 ],
               ),
+
+              // Map information and listing count.
               Positioned(
                 right: 12,
                 top: 12,
-                child: Card(child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Text('آگهی‌های دارای موقعیت: ${markers.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                )),
+                child: Card(
+                  elevation: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.location_on, color: gold, size: 19),
+                      const SizedBox(width: 5),
+                      Text(
+                        focus == null ? 'آگهی‌های روی نقشه: ${markers.length}' : 'موقعیت آگهی انتخاب‌شده',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ]),
+                  ),
+                ),
               ),
+
+              // Free built-in zoom and recenter controls.
+              Positioned(
+                left: 12,
+                top: 12,
+                child: Card(
+                  elevation: 3,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(
+                      tooltip: 'بزرگ‌نمایی',
+                      onPressed: () => _moveToCenter(_mapController.camera.center, zoom: _currentZoom + 1),
+                      icon: const Icon(Icons.add),
+                    ),
+                    const Divider(height: 1),
+                    IconButton(
+                      tooltip: 'کوچک‌نمایی',
+                      onPressed: () => _moveToCenter(_mapController.camera.center, zoom: _currentZoom - 1),
+                      icon: const Icon(Icons.remove),
+                    ),
+                    const Divider(height: 1),
+                    IconButton(
+                      tooltip: 'بازگشت به مرکز نقشه',
+                      onPressed: () => _moveToCenter(center, zoom: focus == null ? 13 : 16),
+                      icon: const Icon(Icons.my_location, color: gold),
+                    ),
+                  ]),
+                ),
+              ),
+
               if (focus != null)
                 Positioned(
                   left: 12,
-                  bottom: 18,
-                  child: FloatingActionButton.extended(
-                    backgroundColor: black,
-                    foregroundColor: gold,
-                    onPressed: () => openDirections(focus),
-                    icon: const Icon(Icons.directions),
-                    label: const Text('مسیریابی'),
+                  right: 12,
+                  bottom: 16,
+                  child: Card(
+                    elevation: 5,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          const Icon(Icons.verified_outlined, color: gold),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              (focus['title'] ?? 'آگهی انتخاب‌شده').toString(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${focus['category'] ?? ''} | ${focus['property_type'] ?? ''} | ${focus['neighborhood'] ?? 'نهاوند'}',
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                        ),
+                        const SizedBox(height: 9),
+                        Row(children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _copyCoordinates(focus),
+                              icon: const Icon(Icons.copy, size: 18),
+                              label: const Text('کپی مختصات'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(backgroundColor: black, foregroundColor: gold),
+                              onPressed: () => openDirections(focus),
+                              icon: const Icon(Icons.directions),
+                              label: const Text('مسیریابی'),
+                            ),
+                          ),
+                        ]),
+                      ]),
+                    ),
+                  ),
+                ),
+
+              if (focus == null && markers.isEmpty)
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: 22,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: const Text(
+                        'هنوز آگهی منتشرشده‌ای با موقعیت ثبت‌شده روی نقشه وجود ندارد.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 ),
             ]);
@@ -3908,7 +4060,7 @@ if (response.statusCode != 200) {
                     _ToolTile(icon: Icons.calculate, title: 'تبدیل رهن و اجاره', onTap: () { Navigator.pop(sheetContext); openPage(const RentConvertPage()); }),
                     _ToolTile(icon: Icons.assignment_ind, title: 'ثبت درخواست ملک', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyRequestPage()); }),
                     _ToolTile(icon: Icons.apartment, title: 'مشارکت در ساخت', onTap: () { Navigator.pop(sheetContext); openPage(const ConstructionCalculatorPage()); }),
-                    _ToolTile(icon: Icons.map_outlined, title: 'نقشه املاک نهاوند', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyMapPage()); }),
+                    _ToolTile(icon: Icons.map_outlined, title: 'نقشه', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyMapPage()); }),
                     _ToolTile(icon: Icons.brightness_6_outlined, title: 'حالت روشن / تاریک', onTap: () { Navigator.pop(sheetContext); showThemeModeDialog(context); }),
                   ],
                 ),
