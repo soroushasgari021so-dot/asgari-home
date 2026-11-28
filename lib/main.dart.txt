@@ -4,6 +4,8 @@ import 'dart:io';
 
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -723,6 +725,14 @@ class ListingDetailsPage extends StatelessWidget {
                   detailRow(Icons.layers, 'طبقه', floor),
                   detailRow(Icons.location_city, 'محله', neighborhood),
                   detailRow(Icons.location_on, 'آدرس', address),
+                  if (item['latitude'] != null && item['longitude'] != null) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text('مشاهده موقعیت دقیق ملک روی نقشه'),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PropertyMapPage(focusListing: item))),
+                    )),
+                  ],
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     const Text(
@@ -1034,7 +1044,7 @@ void initState() {
   Future<List<Map<String, dynamic>>> loadListings() async {
     final response = await Supabase.instance.client
         .from('public_listings')
-        .select()
+        .select('*, owner:owners(id, full_name, phone)')
         .order('created_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);
@@ -1348,6 +1358,24 @@ final item = items[index - 1];
                         Text(
                           'محله: ${item['neighborhood'] ?? 'ثبت نشده'}',
                         ),
+                        if (item['owner'] is Map && (item['owner']['full_name'] ?? '').toString().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(children: [
+                              const Icon(Icons.person_outline, size: 17, color: gold),
+                              const SizedBox(width: 5),
+                              Expanded(child: Text('مالک: ${item['owner']['full_name']} | ${item['owner']['phone'] ?? 'بدون شماره'}', style: const TextStyle(fontSize: 12))),
+                              if ((item['owner']['phone'] ?? '').toString().isNotEmpty)
+                                IconButton(
+                                  tooltip: 'تماس با مالک',
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(Icons.call, color: Colors.green),
+                                  onPressed: () => launchUrl(Uri(scheme: 'tel', path: item['owner']['phone'].toString()), mode: LaunchMode.externalApplication),
+                                ),
+                            ]),
+                          )
+                        else
+                          const Text('اطلاعات مالک ثبت نشده', style: TextStyle(fontSize: 11, color: Colors.grey)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -1424,6 +1452,378 @@ IconButton(
     );
   }
 }
+
+// -------------------- PROPERTY MAPS --------------------
+
+const LatLng nahavandMapCenter = LatLng(34.1885, 48.3764);
+
+class MapLocationPickerDialog extends StatefulWidget {
+  final LatLng initialLocation;
+  const MapLocationPickerDialog({super.key, required this.initialLocation});
+
+  @override
+  State<MapLocationPickerDialog> createState() => _MapLocationPickerDialogState();
+}
+
+class _MapLocationPickerDialogState extends State<MapLocationPickerDialog> {
+  late LatLng selected;
+
+  @override
+  void initState() {
+    super.initState();
+    selected = widget.initialLocation;
+  }
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: AlertDialog(
+      title: const Text('انتخاب موقعیت ملک'),
+      content: SizedBox(
+        width: 560,
+        height: 430,
+        child: Column(children: [
+          const Text('برای تعیین محل دقیق، نقطه موردنظر را روی نقشه لمس کنید.'),
+          const SizedBox(height: 8),
+          Expanded(child: FlutterMap(
+            options: MapOptions(
+              initialCenter: selected,
+              initialZoom: 15,
+              onTap: (_, point) => setState(() => selected = point),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // Identify the app correctly to comply with OSM tile usage policy.
+                userAgentPackageName: 'com.example.asgari_home',
+              ),
+              MarkerLayer(markers: [Marker(
+                point: selected,
+                width: 48,
+                height: 48,
+                child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
+              )]),
+              const RichAttributionWidget(
+                attributions: [TextSourceAttribution('© OpenStreetMap contributors')],
+              ),
+            ],
+          )),
+          const SizedBox(height: 8),
+          Text('عرض: ${selected.latitude.toStringAsFixed(6)} | طول: ${selected.longitude.toStringAsFixed(6)}', style: const TextStyle(fontSize: 11)),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('انصراف')),
+        FilledButton(onPressed: () => Navigator.pop(context, selected), child: const Text('ثبت موقعیت')),
+      ],
+    ),
+  );
+}
+
+class PropertyMapPage extends StatefulWidget {
+  final Map<String, dynamic>? focusListing;
+  const PropertyMapPage({super.key, this.focusListing});
+
+  @override
+  State<PropertyMapPage> createState() => _PropertyMapPageState();
+}
+
+class _PropertyMapPageState extends State<PropertyMapPage> {
+  late Future<List<Map<String, dynamic>>> listingsFuture;
+  final MapController _mapController = MapController();
+  late double _currentZoom;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentZoom = widget.focusListing == null ? 13 : 16;
+    listingsFuture = loadMappedListings();
+  }
+
+  Future<List<Map<String, dynamic>>> loadMappedListings() async {
+    final rows = await Supabase.instance.client
+        .from('public_listings')
+        .select('id, title, category, property_type, neighborhood, display_price, sale_price, deposit_amount, monthly_rent, image_urls, latitude, longitude, is_published')
+        .eq('is_published', true)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null);
+    return List<Map<String, dynamic>>.from(rows);
+  }
+
+  Future<void> openDirections(Map<String, dynamic> listing) async {
+    final lat = double.tryParse(listing['latitude'].toString());
+    final lng = double.tryParse(listing['longitude'].toString());
+    if (lat == null || lng == null) {
+      return;
+    }
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _moveToCenter(LatLng center, {double? zoom}) {
+    final nextZoom = (zoom ?? _currentZoom).clamp(3.0, 19.0).toDouble();
+    _currentZoom = nextZoom;
+    _mapController.move(center, nextZoom);
+  }
+
+  Future<void> _copyCoordinates(Map<String, dynamic> listing) async {
+    final lat = listing['latitude'].toString();
+    final lng = listing['longitude'].toString();
+    await Clipboard.setData(ClipboardData(text: '$lat, $lng'));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('مختصات ملک کپی شد')),
+    );
+  }
+
+  void showListing(Map<String, dynamic> listing) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text((listing['title'] ?? 'ملک').toString(), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text('${listing['category'] ?? ''} | ${listing['property_type'] ?? ''} | ${listing['neighborhood'] ?? 'نهاوند'}'),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ListingDetailsPage(item: listing)));
+                },
+                icon: const Icon(Icons.home_work_outlined),
+                label: const Text('جزئیات آگهی'),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: FilledButton.icon(
+                onPressed: () => openDirections(listing),
+                icon: const Icon(Icons.directions),
+                label: const Text('مسیریابی'),
+              )),
+            ]),
+          ]),
+        )),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focus = widget.focusListing;
+    final center = focus != null && focus['latitude'] != null && focus['longitude'] != null
+        ? LatLng(double.parse(focus['latitude'].toString()), double.parse(focus['longitude'].toString()))
+        : nahavandMapCenter;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(focus == null ? 'نقشه' : 'موقعیت ملک'),
+          actions: [
+            if (focus == null)
+              IconButton(
+                tooltip: 'بارگذاری مجدد آگهی‌ها',
+                onPressed: () => setState(() => listingsFuture = loadMappedListings()),
+                icon: const Icon(Icons.refresh),
+              ),
+          ],
+        ),
+        body: FutureBuilder<List<Map<String, dynamic>>>(
+          future: listingsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: gold));
+            }
+            if (snapshot.hasError) {
+              return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.map_outlined, size: 48, color: gold),
+                const SizedBox(height: 12),
+                const Text('دریافت موقعیت آگهی‌ها ناموفق بود.'),
+                TextButton(
+                  onPressed: () => setState(() => listingsFuture = loadMappedListings()),
+                  child: const Text('تلاش مجدد'),
+                ),
+              ]));
+            }
+
+            final allItems = snapshot.data ?? [];
+            // When opened from a listing, show only that listing's marker.
+            final items = focus == null
+                ? allItems
+                : allItems.where((item) => item['id'].toString() == focus['id'].toString()).toList();
+
+            final markers = items.map((item) {
+              final lat = double.tryParse(item['latitude'].toString());
+              final lng = double.tryParse(item['longitude'].toString());
+              if (lat == null || lng == null) {
+                return null;
+              }
+              final isFocused = focus != null && item['id'].toString() == focus['id'].toString();
+              return Marker(
+                point: LatLng(lat, lng),
+                width: isFocused ? 62 : 50,
+                height: isFocused ? 66 : 54,
+                child: GestureDetector(
+                  onTap: () => showListing(item),
+                  child: Icon(
+                    Icons.location_pin,
+                    color: isFocused ? gold : const Color(0xFFD84343),
+                    size: isFocused ? 58 : 46,
+                    shadows: const [Shadow(color: Colors.black54, blurRadius: 5, offset: Offset(0, 2))],
+                  ),
+                ),
+              );
+            }).whereType<Marker>().toList();
+
+            return Stack(children: [
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: _currentZoom,
+                  onPositionChanged: (camera, hasGesture) {
+                    _currentZoom = camera.zoom;
+                  },
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    // Identify the app correctly to comply with OSM tile usage policy.
+                    userAgentPackageName: 'com.example.asgari_home',
+                  ),
+                  MarkerLayer(markers: markers),
+                  const RichAttributionWidget(
+                    attributions: [TextSourceAttribution('© OpenStreetMap contributors')],
+                  ),
+                ],
+              ),
+
+              // Map information and listing count.
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Card(
+                  elevation: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.location_on, color: gold, size: 19),
+                      const SizedBox(width: 5),
+                      Text(
+                        focus == null ? 'آگهی‌های روی نقشه: ${markers.length}' : 'موقعیت آگهی انتخاب‌شده',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+
+              // Free built-in zoom and recenter controls.
+              Positioned(
+                left: 12,
+                top: 12,
+                child: Card(
+                  elevation: 3,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(
+                      tooltip: 'بزرگ‌نمایی',
+                      onPressed: () => _moveToCenter(_mapController.camera.center, zoom: _currentZoom + 1),
+                      icon: const Icon(Icons.add),
+                    ),
+                    const Divider(height: 1),
+                    IconButton(
+                      tooltip: 'کوچک‌نمایی',
+                      onPressed: () => _moveToCenter(_mapController.camera.center, zoom: _currentZoom - 1),
+                      icon: const Icon(Icons.remove),
+                    ),
+                    const Divider(height: 1),
+                    IconButton(
+                      tooltip: 'بازگشت به مرکز نقشه',
+                      onPressed: () => _moveToCenter(center, zoom: focus == null ? 13 : 16),
+                      icon: const Icon(Icons.my_location, color: gold),
+                    ),
+                  ]),
+                ),
+              ),
+
+              if (focus != null)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 16,
+                  child: Card(
+                    elevation: 5,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          const Icon(Icons.verified_outlined, color: gold),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              (focus['title'] ?? 'آگهی انتخاب‌شده').toString(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${focus['category'] ?? ''} | ${focus['property_type'] ?? ''} | ${focus['neighborhood'] ?? 'نهاوند'}',
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                        ),
+                        const SizedBox(height: 9),
+                        Row(children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _copyCoordinates(focus),
+                              icon: const Icon(Icons.copy, size: 18),
+                              label: const Text('کپی مختصات'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(backgroundColor: black, foregroundColor: gold),
+                              onPressed: () => openDirections(focus),
+                              icon: const Icon(Icons.directions),
+                              label: const Text('مسیریابی'),
+                            ),
+                          ),
+                        ]),
+                      ]),
+                    ),
+                  ),
+                ),
+
+              if (focus == null && markers.isEmpty)
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: 22,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: const Text(
+                        'هنوز آگهی منتشرشده‌ای با موقعیت ثبت‌شده روی نقشه وجود ندارد.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+            ]);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 // -------------------- HELPERS --------------------
 
 String normalizeDigits(String value) {
@@ -1526,6 +1926,12 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
   late final TextEditingController rentController;
   late final TextEditingController displayPriceController;
   late final TextEditingController descriptionController;
+  late final TextEditingController ownerNameController;
+  late final TextEditingController ownerPhoneController;
+  late final TextEditingController ownerNotesController;
+  late final TextEditingController latitudeController;
+  late final TextEditingController longitudeController;
+  String? existingOwnerId;
 
   String category = 'فروش';
   String propertyType = 'آپارتمان';
@@ -1611,6 +2017,15 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
     descriptionController = TextEditingController(
       text: item['description']?.toString() ?? '',
     );
+    final ownerData = item['owner'] is Map
+        ? Map<String, dynamic>.from(item['owner'] as Map)
+        : <String, dynamic>{};
+    existingOwnerId = item['owner_id']?.toString();
+    ownerNameController = TextEditingController(text: ownerData['full_name']?.toString() ?? '');
+    ownerPhoneController = TextEditingController(text: ownerData['phone']?.toString() ?? '');
+    ownerNotesController = TextEditingController(text: ownerData['notes']?.toString() ?? '');
+    latitudeController = TextEditingController(text: item['latitude']?.toString() ?? '');
+    longitudeController = TextEditingController(text: item['longitude']?.toString() ?? '');
 
     if (item['image_urls'] is List) {
       existingImages = List<String>.from(item['image_urls']);
@@ -1662,6 +2077,11 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
     rentController.dispose();
     displayPriceController.dispose();
     descriptionController.dispose();
+    ownerNameController.dispose();
+    ownerPhoneController.dispose();
+    ownerNotesController.dispose();
+    latitudeController.dispose();
+    longitudeController.dispose();
     super.dispose();
   }
 
@@ -1765,6 +2185,46 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
 
       final uploadedUrls = await uploadNewImages();
       final allImages = [...existingImages, ...uploadedUrls];
+      final ownerName = ownerNameController.text.trim();
+      final ownerPhone = normalizeDigits(ownerPhoneController.text.trim());
+      String? ownerId = existingOwnerId;
+      if (ownerName.isNotEmpty || ownerPhone.isNotEmpty || ownerNotesController.text.trim().isNotEmpty) {
+        final digitsOnlyPhone = ownerPhone.replaceAll(RegExp(r'[^0-9]'), '');
+        final nationalPhone = digitsOnlyPhone.startsWith('98') && digitsOnlyPhone.length == 12
+            ? '0${digitsOnlyPhone.substring(2)}'
+            : digitsOnlyPhone;
+        if (ownerName.isEmpty || !RegExp(r'^09\d{9}$').hasMatch(nationalPhone)) {
+          throw Exception('نام مالک و شماره همراه معتبر ۱۱ رقمی (09...) الزامی است.');
+        }
+        final ownerPayload = <String, dynamic>{
+          'full_name': ownerName,
+          'phone': nationalPhone,
+          'notes': ownerNotesController.text.trim(),
+        };
+        if (ownerId != null && ownerId.isNotEmpty) {
+          await client.from('owners').update(ownerPayload).eq('id', ownerId);
+        } else {
+          final matchingOwner = await client.from('owners').select('id').eq('phone', nationalPhone).maybeSingle();
+          if (matchingOwner != null) {
+            final matchingOwnerId = matchingOwner['id'].toString();
+            ownerId = matchingOwnerId;
+            await client.from('owners').update(ownerPayload).eq('id', matchingOwnerId);
+          } else {
+            final createdOwner = await client.from('owners').insert(ownerPayload).select('id').single();
+            ownerId = createdOwner['id'].toString();
+          }
+        }
+      } else {
+        ownerId = null;
+      }
+      final latitude = parseNumber(latitudeController.text);
+      final longitude = parseNumber(longitudeController.text);
+      if ((latitude == null) != (longitude == null)) {
+        throw Exception('برای موقعیت ملک، طول و عرض جغرافیایی را کامل انتخاب کنید.');
+      }
+      if (latitude != null && (latitude < -90 || latitude > 90 || longitude! < -180 || longitude > 180)) {
+        throw Exception('مختصات جغرافیایی معتبر نیست.');
+      }
 
       final data = <String, dynamic>{
         'title': titleController.text.trim(),
@@ -1784,6 +2244,9 @@ class _PropertyEditorDialogState extends State<PropertyEditorDialog> {
         'monthly_rent': parseNumber(rentController.text),
         'display_price': displayPriceController.text.trim(),
         'description': descriptionController.text.trim(),
+        'owner_id': ownerId,
+        'latitude': latitude,
+        'longitude': longitude,
         'is_published': published,
         'image_urls': allImages,
       };
@@ -2120,6 +2583,33 @@ enabled: enabled,
                   ),
                   textField('محله', neighborhoodController),
                   textField('آدرس کامل', addressController),
+                  const Divider(height: 24),
+                  const Align(alignment: Alignment.centerRight, child: Text('اطلاعات خصوصی مالک (فقط پنل مدیریت)', style: TextStyle(fontWeight: FontWeight.bold, color: gold))),
+                  const SizedBox(height: 10),
+                  textField('نام و نام خانوادگی مالک', ownerNameController),
+                  textField('شماره همراه مالک', ownerPhoneController, keyboardType: TextInputType.phone),
+                  textField('یادداشت هماهنگی با مالک', ownerNotesController, maxLines: 2),
+                  const Divider(height: 24),
+                  const Align(alignment: Alignment.centerRight, child: Text('موقعیت ملک روی نقشه', style: TextStyle(fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: saving ? null : () async {
+                      final initial = latitudeController.text.isNotEmpty && longitudeController.text.isNotEmpty
+                          ? LatLng(double.parse(latitudeController.text), double.parse(longitudeController.text))
+                          : const LatLng(34.1885, 48.3764);
+                      final selected = await showDialog<LatLng>(context: context, builder: (_) => MapLocationPickerDialog(initialLocation: initial));
+                      if (selected != null && mounted) {
+                        setState(() {
+                          latitudeController.text = selected.latitude.toStringAsFixed(7);
+                          longitudeController.text = selected.longitude.toStringAsFixed(7);
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.map_outlined),
+                    label: Text(latitudeController.text.isEmpty ? 'انتخاب موقعیت روی نقشه' : 'تغییر موقعیت انتخاب‌شده'),
+                  ),
+                  if (latitudeController.text.isNotEmpty && longitudeController.text.isNotEmpty)
+                    Text('مختصات ثبت‌شده: ${latitudeController.text}, ${longitudeController.text}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                   textField(
                     'تعداد اتاق خواب',
                     bedroomsController,
@@ -3570,6 +4060,7 @@ if (response.statusCode != 200) {
                     _ToolTile(icon: Icons.calculate, title: 'تبدیل رهن و اجاره', onTap: () { Navigator.pop(sheetContext); openPage(const RentConvertPage()); }),
                     _ToolTile(icon: Icons.assignment_ind, title: 'ثبت درخواست ملک', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyRequestPage()); }),
                     _ToolTile(icon: Icons.apartment, title: 'مشارکت در ساخت', onTap: () { Navigator.pop(sheetContext); openPage(const ConstructionCalculatorPage()); }),
+                    _ToolTile(icon: Icons.map_outlined, title: 'نقشه', onTap: () { Navigator.pop(sheetContext); openPage(const PropertyMapPage()); }),
                     _ToolTile(icon: Icons.brightness_6_outlined, title: 'حالت روشن / تاریک', onTap: () { Navigator.pop(sheetContext); showThemeModeDialog(context); }),
                   ],
                 ),
